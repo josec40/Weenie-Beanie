@@ -285,3 +285,17 @@ fn create_loan_instruction_data_matches_java_golden_vector() {
         "a68376db8adace8c000102030405060708090a0b0c0d0e0f8081621400000000e0ec040100000000ce170300d0170300"
     );
 }
+
+/// PDA golden vectors shared with the Java client (backend `SolanajClientTest`), for the live devnet mint.
+#[test]
+fn pda_derivation_golden_vectors() {
+    use std::str::FromStr;
+    let mint = Pubkey::from_str("Cmg8i52JnPxSXQ67a8pYaWBgJtUoMek5oz6bgb5DuNM3").unwrap();
+    let (pool, pool_bump) = Pubkey::find_program_address(&[POOL_SEED, mint.as_ref()], &microloan::id());
+    let (vault, vault_bump) = Pubkey::find_program_address(&[VAULT_SEED, pool.as_ref()], &microloan::id());
+    let loan_ref: Vec<u8> = (0u8..16).collect();
+    let (loan, loan_bump) = Pubkey::find_program_address(&[LOAN_SEED, pool.as_ref(), &loan_ref], &microloan::id());
+    assert_eq!((pool.to_string().as_str(), pool_bump), ("E4Vw2myrgtZBeUx4QVEBuoYj9kmVDr4jaEJLpHKvcmem", 255));
+    assert_eq!((vault.to_string().as_str(), vault_bump), ("13UD7PwE7B1vZSgPnw5AYpoydgfPWSsNUam6ozgBV4qJ", 255));
+    assert_eq!((loan.to_string().as_str(), loan_bump), ("EDNJQFxcV3jLEJ6t4SRa4jsDvXt3uxAunP67f8rZqkxC", 255));
+}

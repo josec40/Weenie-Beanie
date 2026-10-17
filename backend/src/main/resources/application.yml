@@ -65,3 +65,9 @@ app:
 nessie:
   base-url: ${NESSIE_BASE_URL:https://api.nessieisreal.com}
   api-key: ${NESSIE_API_KEY}
+
+solana:
+  # Hosted RPC providers put API keys in the URL; set it via the environment, never commit it.
+  rpc-url: ${SOLANA_RPC_URL:https://api.devnet.solana.com}
+  commitment: confirmed
+  confirm-timeout: PT45S

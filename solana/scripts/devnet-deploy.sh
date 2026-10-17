@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Deploys both programs to devnet and creates the mock USDC mint (6 decimals, mint authority = bank keypair).
-# Prereqs: deployer ~/.config/solana/id.json funded with >= 4 devnet SOL (https://faucet.solana.com).
+# Prereqs: a funded devnet deployer keypair (default solana/wallet-1-keypair.json, git-ignored; override with
+# DEPLOYER_KEYPAIR) holding >= 4 devnet SOL (https://faucet.solana.com).
 # Pool/config initialization (init_pool, init_config) is done by the backend in Phase 7.
 set -euo pipefail
 
@@ -11,10 +12,11 @@ if [[ "$(uname)" == "Darwin" && -d /Library/Developer/CommandLineTools/SDKs/MacO
   export SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk
 fi
 
+DEPLOYER_KEYPAIR="${DEPLOYER_KEYPAIR:-$PWD/wallet-1-keypair.json}"
 BANK_KEYPAIR="${BANK_KEYPAIR:-$HOME/.config/solana/shbean-bank.json}"
 OUT_ENV="devnet.env"
 
-solana config set --url devnet >/dev/null
+solana config set --url devnet --keypair "$DEPLOYER_KEYPAIR" >/dev/null
 balance=$(solana balance | awk '{print $1}')
 if awk "BEGIN{exit !($balance < 4)}"; then
   echo "Deployer $(solana address) has $balance SOL; need >= 4 devnet SOL (https://faucet.solana.com)." >&2
@@ -22,7 +24,7 @@ if awk "BEGIN{exit !($balance < 4)}"; then
 fi
 
 anchor build --arch v2
-anchor deploy --provider.cluster devnet
+anchor deploy --provider.cluster devnet --provider.wallet "$DEPLOYER_KEYPAIR"
 
 if [[ ! -f "$BANK_KEYPAIR" ]]; then
   solana-keygen new --no-bip39-passphrase --silent -o "$BANK_KEYPAIR"
