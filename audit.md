@@ -10,17 +10,10 @@ Last updated: 2026-10-16
 
 A hackathon MVP for a banking institution that shifts lending from **reactive** to **proactive**:
 
-1. The bank forecasts a user's cash flow 12 months ahead (historical banking data + user-entered recurring expenses with durations, e.g. "Netflix for 12 months", "car loan for 36 months").
-2. When a **shortfall** month is followed by a **surplus** month that can cover it, the bank proactively offers a **micro-loan** with an AI-generated plain-language explanation.
-3. If the user accepts, a **Solana smart contract** escrows the loan: disburses (mock USDC stablecoin) in the shortfall month and auto-drafts repayment + a micro-fee in the surplus month. The fiat side is mirrored in the **Capital One Nessie** banking API.
-4. **Hybrid feature:** each on-time repayment updates an on-chain, non-transferable **Soulbound reputation credential**. Higher reputation tiers unlock larger credit limits, and partners can verify the credential via a public endpoint (no PII).
-
-### Why this idea (chosen over an "on-chain credit identity / instant mortgage" alternative)
-- Immediate, tangible user value (avoids overdrafts / payday loans) and low-risk fee revenue for the bank.
-- AI is core (forecasting, explanations), not decorative.
-- Solana's low fees and fast finality make micro-loans economical.
-- Demoable end-to-end; regulatorily closer to existing small-dollar credit products.
-- The credential part of the rejected idea is kept as the hybrid feature, without ZKP complexity.
+1. When a user wants to make a purchase that they can only partially pay, we have an AI agent investigate whether we can give them a micro-loan that they have a high chance of paying off in the next coming months.
+2. The AI agent investigates by forecasting the users cash flow in the coming months based on all their banking information (historical data and user-entered recurring expenses and deposits with durations, e.g. "Netflix for 12 months", "car loan for 36 months").
+3. If the user accepts the micro-loan, a **Solana powered transaction** instantly transfers the money from the bank to the vendor.
+4. **Optional feature:** each on-time repayment updates an on-chain s**Soulbound token**. Higher reputation tiers unlock larger credit limits, and partners can verify the credential via a public endpoint (no PII).
 
 ---
 
