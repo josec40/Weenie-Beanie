@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
  */
 public final class ForecastEngine {
 
-    public enum Source { MONTHLY, BIWEEKLY, WEEKLY, ANNUAL, RECURRING_EXPENSE, DISCRETIONARY }
+    public enum Source { MONTHLY, BIWEEKLY, WEEKLY, ANNUAL, RECURRING_EXPENSE, DISCRETIONARY, LOAN }
 
     /** {@code amount} is signed: inflow &gt; 0, outflow &lt; 0. {@code key} groups the same payee/payer. */
     public record HistoryTxn(LocalDate date, BigDecimal amount, String category, String label, String key) {
@@ -39,7 +39,11 @@ public final class ForecastEngine {
     }
 
     public record Input(YearMonth currentMonth, int horizonMonths, BigDecimal startingBalance, List<HistoryTxn> history,
-                        Map<YearMonth, BigDecimal> monthlyNet, List<PlannedExpense> planned) {
+                        Map<YearMonth, BigDecimal> monthlyNet, List<PlannedExpense> planned, List<OneOff> oneOffs) {
+    }
+
+    /** A known future flow in a specific month (e.g. loan disbursement / repayment). {@code amount} is signed. */
+    public record OneOff(YearMonth month, String label, String category, BigDecimal amount, Source source) {
     }
 
     public record Line(String label, String category, BigDecimal amount, Source source) {
@@ -92,6 +96,11 @@ public final class ForecastEngine {
             for (PlannedExpense e : in.planned()) {
                 if (e.activeIn(m)) {
                     lines.add(new Line(e.name(), e.category(), scale(e.amount().negate()), Source.RECURRING_EXPENSE));
+                }
+            }
+            for (OneOff o : in.oneOffs()) {
+                if (o.month().equals(m)) {
+                    lines.add(new Line(o.label(), o.category(), scale(o.amount()), o.source()));
                 }
             }
             if (discretionary.signum() != 0) {

@@ -1,7 +1,5 @@
 package com.shbean.ai;
 
-import java.time.YearMonth;
-import java.time.ZoneOffset;
 import java.util.List;
 
 import org.springframework.graphql.data.method.annotation.Argument;
@@ -12,6 +10,7 @@ import org.springframework.stereotype.Controller;
 
 import com.shbean.ai.ExpenseParser.ExpenseDraft;
 import com.shbean.ai.ExplanationService.Explanation;
+import com.shbean.demo.DemoClock;
 import com.shbean.forecast.ForecastService.Forecast;
 
 @Controller
@@ -19,10 +18,12 @@ public class AiController {
 
     private final ExpenseParser parser;
     private final ExplanationService explanations;
+    private final DemoClock clock;
 
-    public AiController(ExpenseParser parser, ExplanationService explanations) {
+    public AiController(ExpenseParser parser, ExplanationService explanations, DemoClock clock) {
         this.parser = parser;
         this.explanations = explanations;
+        this.clock = clock;
     }
 
     @QueryMapping
@@ -32,7 +33,7 @@ public class AiController {
 
     @MutationMapping
     public List<ExpenseDraft> draftRecurringExpenses(@Argument String text) {
-        return parser.parse(text, YearMonth.now(ZoneOffset.UTC));
+        return parser.parse(text, clock.currentMonth());
     }
 
     @SchemaMapping(typeName = "Forecast")

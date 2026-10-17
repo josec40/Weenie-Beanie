@@ -148,7 +148,7 @@ class ForecastEngineTest {
     private static Result run(BigDecimal start, List<HistoryTxn> history, List<PlannedExpense> planned) {
         Map<YearMonth, BigDecimal> monthlyNet = history.stream().collect(Collectors.groupingBy(
                 t -> YearMonth.from(t.date()), Collectors.reducing(BigDecimal.ZERO, HistoryTxn::amount, BigDecimal::add)));
-        return ForecastEngine.forecast(new Input(NOW, 12, start, history, monthlyNet, planned));
+        return ForecastEngine.forecast(new Input(NOW, 12, start, history, monthlyNet, planned, List.of()));
     }
 
     private static HistoryTxn txn(LocalDate date, String amount, String category, String label, String key) {

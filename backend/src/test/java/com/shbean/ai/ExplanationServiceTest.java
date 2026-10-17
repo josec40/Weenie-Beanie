@@ -99,7 +99,7 @@ class ExplanationServiceTest {
                 .toList();
         Map<YearMonth, BigDecimal> net = history.stream().collect(Collectors.groupingBy(t -> YearMonth.from(t.date()),
                 Collectors.reducing(BigDecimal.ZERO, HistoryTxn::amount, BigDecimal::add)));
-        var r = ForecastEngine.forecast(new ForecastEngine.Input(NOW, 12, DemoScenario.CURRENT_BALANCE, history, net, List.of()));
+        var r = ForecastEngine.forecast(new ForecastEngine.Input(NOW, 12, DemoScenario.CURRENT_BALANCE, history, net, List.of(), List.of()));
         return new Forecast(r.currentMonth(), r.startingBalance(), null, r.discretionaryMonthly(), r.months());
     }
 }

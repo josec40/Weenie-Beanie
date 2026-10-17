@@ -99,6 +99,14 @@ public class NessieClient {
                 .body(Merchant.class));
     }
 
+    public List<Merchant> listMerchants() {
+        List<Merchant> result = call("listMerchants", () -> rest.get()
+                .uri(b -> withKey(b, "/merchants"))
+                .retrieve()
+                .body(new ParameterizedTypeReference<List<Merchant>>() {}));
+        return result == null ? List.of() : result;
+    }
+
     public Merchant createMerchant(CreateMerchantRequest request) {
         return call("createMerchant", () -> rest.post()
                 .uri(b -> withKey(b, "/merchants"))

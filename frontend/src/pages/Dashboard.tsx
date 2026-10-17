@@ -3,6 +3,7 @@ import { gql, useApolloClient, useMutation, useQuery } from '@apollo/client';
 import { useNavigate } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { clearToken } from '../auth';
+import LoansPanel from '../components/LoansPanel';
 
 const DASHBOARD = gql`
   query Dashboard($months: Int) {
@@ -296,6 +297,8 @@ export default function Dashboard() {
           )}
         </section>
       )}
+
+      <LoansPanel onChanged={() => void refetch()} />
 
       <section className="panel">
         <h2>Recurring expenses</h2>

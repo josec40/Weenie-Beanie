@@ -2,3 +2,7 @@ spring:
   graphql:
     graphiql:
       enabled: true
+
+app:
+  demo:
+    clock-enabled: true

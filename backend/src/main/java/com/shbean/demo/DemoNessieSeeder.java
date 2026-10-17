@@ -1,16 +1,10 @@
 package com.shbean.demo;
 
 import java.time.YearMonth;
-import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,8 +27,6 @@ import com.shbean.nessie.NessieModels.Address;
 import com.shbean.nessie.NessieModels.CreateAccountRequest;
 import com.shbean.nessie.NessieModels.CreateCustomerRequest;
 import com.shbean.nessie.NessieModels.CreateMerchantRequest;
-import com.shbean.nessie.NessieModels.CreatePurchaseRequest;
-import com.shbean.nessie.NessieModels.CreateTransferRequest;
 import com.shbean.nessie.NessieModels.Customer;
 import com.shbean.nessie.NessieModels.Geocode;
 import com.shbean.user.AppUser;
@@ -50,21 +42,24 @@ public class DemoNessieSeeder implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(DemoNessieSeeder.class);
     private static final Address ADDRESS = new Address("100", "Bay St", "Tampa", "FL", "33620");
     private static final Geocode GEOCODE = new Geocode(27.95, -82.45);
-    private static final int PARALLELISM = 8;
 
     private final NessieClient nessie;
     private final AppUserRepository users;
     private final NessieSyncService sync;
     private final DemoProperties demo;
     private final EventPublisher events;
+    private final DemoPoster poster;
+    private final DemoClock clock;
 
     public DemoNessieSeeder(NessieClient nessie, AppUserRepository users, NessieSyncService sync, DemoProperties demo,
-                            EventPublisher events) {
+                            EventPublisher events, DemoPoster poster, DemoClock clock) {
         this.nessie = nessie;
         this.users = users;
         this.sync = sync;
         this.demo = demo;
         this.events = events;
+        this.poster = poster;
+        this.clock = clock;
     }
 
     @Override
@@ -100,33 +95,14 @@ public class DemoNessieSeeder implements ApplicationRunner {
             merchantIds.put(m.key(), nessie.createMerchant(new CreateMerchantRequest(m.name(), m.category(), ADDRESS, GEOCODE)).id());
         }
 
-        List<PlannedTxn> history = DemoScenario.history(YearMonth.now(ZoneOffset.UTC), 42L);
-        List<Callable<Object>> posts = history.stream().<Callable<Object>>map(t -> () -> post(account.id(), t, merchantIds)).toList();
-        try (ExecutorService pool = Executors.newFixedThreadPool(PARALLELISM)) {
-            for (Future<Object> f : pool.invokeAll(posts)) {
-                f.get();
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Interrupted while seeding Nessie");
-        } catch (ExecutionException e) {
-            throw new IllegalStateException(e.getCause().getMessage());
-        }
+        YearMonth anchor = clock.currentMonth();
+        List<PlannedTxn> history = DemoScenario.history(anchor, 42L);
+        poster.postAll(account.id(), history, merchantIds);
+        clock.setScenarioAnchor(anchor);
 
         // Link only after the full history is posted so a partial seed is retried on next start.
         user.linkNessie(customer.id(), account.id());
         users.save(user);
         log.info("Seeded {} Nessie transactions for {}", history.size(), user.getEmail());
-    }
-
-    private Object post(String accountId, PlannedTxn t, Map<String, String> merchantIds) {
-        return switch (t.kind()) {
-            case DEPOSIT -> nessie.createDeposit(accountId,
-                    new CreateTransferRequest("balance", t.date(), "completed", t.amount(), t.description()));
-            case WITHDRAWAL -> nessie.createWithdrawal(accountId,
-                    new CreateTransferRequest("balance", t.date(), "completed", t.amount(), t.description()));
-            case PURCHASE -> nessie.createPurchase(accountId,
-                    new CreatePurchaseRequest(merchantIds.get(t.merchantKey()), "balance", t.date(), t.amount(), "completed", t.description()));
-        };
     }
 }

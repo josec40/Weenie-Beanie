@@ -7,6 +7,11 @@ type Query {
     recurringExpenses: [RecurringExpense!]!
     "Canonical spending categories."
     categories: [String!]!
+    "The open micro-loan offer, if any."
+    currentOffer: LoanOffer
+    loans: [Loan!]!
+    creditProfile: CreditProfile!
+    demoClock: DemoClock!
 }
 
 type Mutation {
@@ -18,6 +23,69 @@ type Mutation {
     deleteRecurringExpense(id: ID!): Boolean!
     "Parse free text (max 500 chars) into unsaved drafts; confirm each with createRecurringExpense."
     draftRecurringExpenses(text: String!): [ExpenseDraft!]!
+    "Requires consent = true. Disbursement happens in the offer's shortfall month."
+    acceptOffer(offerId: ID!, consent: Boolean!): Loan!
+    declineOffer(offerId: ID!): Boolean!
+    "Move repayment one month later (once, within the repayment window)."
+    rescheduleLoan(loanId: ID!): Loan!
+    "Repay now instead of the scheduled month (balance safeguard still applies)."
+    repayLoanEarly(loanId: ID!): Loan!
+    "Demo only: close the current simulated month and open the next."
+    advanceMonth: DemoClock!
+}
+
+type LoanOffer {
+    id: ID!
+    "YYYY-MM: month the money is disbursed"
+    shortfallMonth: String!
+    "YYYY-MM: month principal + fee is auto-drafted"
+    repaymentMonth: String!
+    deficit: Float!
+    principal: Float!
+    fee: Float!
+    projectedSurplus: Float!
+    status: String!
+    explanation: String
+    createdAt: String!
+}
+
+enum LoanStatus {
+    ACCEPTED
+    DISBURSING
+    ACTIVE
+    REPAYING
+    LATE
+    REPAID
+    DEFAULTED
+}
+
+type Loan {
+    id: ID!
+    status: LoanStatus!
+    principal: Float!
+    fee: Float!
+    totalDue: Float!
+    disburseMonth: String!
+    repayMonth: String!
+    graceUntilMonth: String
+    rescheduleCount: Int!
+    lastFailure: String
+    createdAt: String!
+    updatedAt: String!
+}
+
+type CreditProfile {
+    tier: Int!
+    cap: Float!
+    "OFFER_AVAILABLE, HAS_OPEN_LOAN, NO_SHORTFALL, EXCEEDS_TIER_CAP or NO_REPAYMENT_MONTH"
+    offerStatus: String!
+}
+
+type DemoClock {
+    "YYYY-MM"
+    currentMonth: String!
+    offset: Int!
+    enabled: Boolean!
 }
 
 type SyncResult {
@@ -93,6 +161,7 @@ enum ForecastSource {
     ANNUAL
     RECURRING_EXPENSE
     DISCRETIONARY
+    LOAN
 }
 
 type Transaction {
