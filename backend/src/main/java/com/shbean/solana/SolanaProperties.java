@@ -38,7 +38,15 @@ public record SolanaProperties(
     }
 
     public String explorerTxUrl(String signature) {
-        String base = "https://explorer.solana.com/tx/" + signature;
+        return explorerUrl("tx/" + signature);
+    }
+
+    public String explorerAddressUrl(String address) {
+        return explorerUrl("address/" + address);
+    }
+
+    private String explorerUrl(String path) {
+        String base = "https://explorer.solana.com/" + path;
         return "mainnet-beta".equals(cluster) ? base : base + "?cluster=" + cluster;
     }
 

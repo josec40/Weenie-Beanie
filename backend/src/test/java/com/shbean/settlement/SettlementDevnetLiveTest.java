@@ -27,6 +27,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.shbean.TestInfra;
 import com.shbean.cashflow.TransactionStore;
+import com.shbean.credential.CredentialStore;
+import com.shbean.credential.ReputationLedger;
 import com.shbean.demo.DemoClock;
 import com.shbean.loan.Loan;
 import com.shbean.loan.LoanRepository;
@@ -38,6 +40,7 @@ import com.shbean.nessie.NessieClient;
 import com.shbean.nessie.NessieModels.Transfer;
 import com.shbean.solana.AnchorCodec;
 import com.shbean.solana.AnchorCodec.LoanStatus;
+import com.shbean.solana.AnchorCodec.ReputationAccount;
 import com.shbean.solana.SolanaClient;
 import com.shbean.solana.SolanaProperties;
 import com.shbean.solana.SplToken;
@@ -79,6 +82,8 @@ class SettlementDevnetLiveTest {
     @Autowired SolanaProperties props;
     @Autowired SolanaBank bank;
     @Autowired WalletService wallets;
+    @Autowired CredentialStore credentials;
+    @Autowired ReputationLedger reputation;
 
     @Test
     void loanIsEscrowedDisbursedAndRepaidOnDevnet() {
@@ -118,6 +123,23 @@ class SettlementDevnetLiveTest {
         assertThat(bank.tokenBalance(borrowerToken)).isZero();
         System.out.println("Disbursed: " + props.explorerTxUrl(repaid.getSolanaDisburseSignature()));
         System.out.println("Repaid:    " + props.explorerTxUrl(repaid.getSolanaRepaySignature()));
+
+        // Phase 8: on-time repayment recorded on-chain and the soulbound credential minted to the borrower.
+        UUID userId = user.getId();
+        await().atMost(Duration.ofMinutes(4)).pollInterval(Duration.ofSeconds(2))
+                .until(() -> credentials.find(userId).map(c -> c.sbtMint() != null).orElse(false));
+        String wallet = wallets.address(userId).orElseThrow();
+        ReputationAccount rep = reputation.read(wallet).orElseThrow();
+        assertThat(rep.onTimeRepayments()).isEqualTo(1);
+        assertThat(rep.totalRepaid()).isEqualTo(12_600_000L);
+        assertThat(rep.hasCredential()).isTrue();
+        String mint = reputation.program().sbtMint(wallet);
+        assertThat(credentials.find(userId).orElseThrow().sbtMint()).isEqualTo(mint);
+        String sbtAccount = SplToken.associatedTokenAddress(solana, wallet, mint, SplToken.TOKEN_2022_PROGRAM);
+        var holding = solana.getAccount(sbtAccount).orElseThrow();
+        assertThat(holding.owner()).isEqualTo(SplToken.TOKEN_2022_PROGRAM);
+        assertThat(SplToken.amount(holding.data())).isEqualTo(1L);
+        System.out.println("Credential: " + props.explorerAddressUrl(mint));
     }
 
     private LoanStatus onChainStatus(Loan loan) {

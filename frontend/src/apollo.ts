@@ -1,7 +1,27 @@
-import { ApolloClient, HttpLink, InMemoryCache, from } from '@apollo/client';
+import { ApolloClient, HttpLink, InMemoryCache, from, split } from '@apollo/client';
 import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
+import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
+import { getMainDefinition } from '@apollo/client/utilities';
+import { createClient, type Client } from 'graphql-ws';
 import { clearToken, getToken } from './auth';
+
+export type LiveState = 'connecting' | 'live' | 'reconnecting';
+const liveListeners = new Set<(s: LiveState) => void>();
+let liveState: LiveState = 'connecting';
+
+function setLiveState(s: LiveState) {
+  liveState = s;
+  liveListeners.forEach((l) => l(s));
+}
+
+export function onLiveState(listener: (s: LiveState) => void): () => void {
+  liveListeners.add(listener);
+  listener(liveState);
+  return () => {
+    liveListeners.delete(listener);
+  };
+}
 
 const authLink = setContext((_, { headers }) => {
   const token = getToken();
@@ -15,7 +35,49 @@ const errorLink = onError(({ networkError }) => {
   }
 });
 
-export const apolloClient = new ApolloClient({
-  link: from([errorLink, authLink, new HttpLink({ uri: '/graphql' })]),
-  cache: new InMemoryCache(),
+const wsUrl = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/graphql-ws`;
+
+// The JWT travels in connection_init: browsers cannot set headers on a WebSocket upgrade.
+export const wsClient: Client = createClient({
+  url: wsUrl,
+  lazy: true,
+  retryAttempts: Infinity,
+  shouldRetry: () => Boolean(getToken()),
+  connectionParams: () => ({ Authorization: `Bearer ${getToken() ?? ''}` }),
+  on: {
+    connected: () => setLiveState('live'),
+    closed: () => setLiveState('reconnecting'),
+  },
 });
+
+const httpLink = from([errorLink, authLink, new HttpLink({ uri: '/graphql' })]);
+
+export const apolloClient = new ApolloClient({
+  link: split(
+    ({ query }) => {
+      const def = getMainDefinition(query);
+      return def.kind === 'OperationDefinition' && def.operation === 'subscription';
+    },
+    new GraphQLWsLink(wsClient),
+    httpLink,
+  ),
+  cache: new InMemoryCache({
+    // Singleton per-user objects without ids: merge instead of replacing when queries select different fields.
+    typePolicies: {
+      Query: {
+        fields: {
+          credential: { merge: true },
+          creditProfile: { merge: true },
+          demoStatus: { merge: true },
+          me: { merge: true },
+        },
+      },
+    },
+  }),
+});
+
+export async function signOut(): Promise<void> {
+  clearToken();
+  await wsClient.dispose();
+  await apolloClient.clearStore();
+}

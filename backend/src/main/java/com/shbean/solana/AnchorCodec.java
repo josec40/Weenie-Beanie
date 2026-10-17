@@ -23,6 +23,15 @@ public final class AnchorCodec {
                               long disbursedAt, long settledAt) {
     }
 
+    /** On-chain {@code reputation::Reputation}; {@code sbtMint} is all zeros until the credential is minted. */
+    public record ReputationAccount(byte[] config, byte[] wallet, int onTimeRepayments, int lateRepayments,
+                                    int defaults, long totalRepaid, int tier, byte[] sbtMint, long updatedAt) {
+
+        public boolean hasCredential() {
+            return !Arrays.equals(sbtMint, new byte[32]);
+        }
+    }
+
     private AnchorCodec() {
     }
 
@@ -82,6 +91,24 @@ public final class AnchorCodec {
         LoanStatus status = LoanStatus.values()[b.get()];
         return new LoanAccount(pool, borrower, borrowerToken, uuidFrom(ref), principal, fee, disburseMonth, repayMonth,
                 status, b.getLong(), b.getLong(), b.getLong());
+    }
+
+    public static ReputationAccount decodeReputation(byte[] data) {
+        ByteBuffer b = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
+        byte[] disc = new byte[8];
+        b.get(disc);
+        if (!Arrays.equals(disc, accountDiscriminator("Reputation"))) {
+            throw new IllegalArgumentException("Not a reputation Reputation account");
+        }
+        byte[] config = key(b);
+        byte[] wallet = key(b);
+        int onTime = b.getInt();
+        int late = b.getInt();
+        int defaults = b.getInt();
+        long totalRepaid = b.getLong();
+        int tier = b.get() & 0xFF;
+        byte[] sbtMint = key(b);
+        return new ReputationAccount(config, wallet, onTime, late, defaults, totalRepaid, tier, sbtMint, b.getLong());
     }
 
     /** UUID as its 16 big-endian bytes (the same order as {@code UUID.toString()} hex). */

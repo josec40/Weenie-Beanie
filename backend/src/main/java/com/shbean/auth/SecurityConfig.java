@@ -37,6 +37,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
                         .requestMatchers("/actuator/health", "/graphiql/**", "/error").permitAll()
+                        // Partner credential verification; returns no PII.
+                        .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()
+                        // Browsers cannot set headers on WebSocket upgrades; authenticated in connection_init instead.
+                        .requestMatchers("/graphql-ws").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults()));
         return http.build();

@@ -31,4 +31,14 @@ public final class Events {
     public record LoanEvent(UUID loanId, String status, BigDecimal principal, BigDecimal fee, String month,
                             String reason) {
     }
+
+    public enum RepaymentOutcome { ON_TIME, LATE, DEFAULT }
+
+    /** {@code amount} is what was repaid (zero for defaults). */
+    public record CredentialUpdateRequested(UUID loanId, RepaymentOutcome outcome, BigDecimal amount, String month) {
+    }
+
+    public record CredentialUpdated(int tier, int previousTier, int onTimeRepayments, int previousOnTimeRepayments,
+                                    int lateRepayments, int defaults, boolean credentialMinted) {
+    }
 }

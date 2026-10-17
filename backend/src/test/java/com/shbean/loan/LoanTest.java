@@ -73,4 +73,41 @@ class LoanTest {
         Loan other = newLoan();
         assertThatThrownBy(() -> other.reschedule(APR)).isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void onTimeMeansTheOriginalMonthAndNeverLate() {
+        Loan scheduled = repaid(newLoan(), null);
+        assertThat(scheduled.isOnTime()).isTrue();
+
+        Loan early = newLoan();
+        early.startDisbursing();
+        early.disbursed("dep");
+        early.repayIn(FEB.plusMonths(1));
+        assertThat(repaid(early, null).isOnTime()).isTrue();
+
+        Loan rescheduled = newLoan();
+        rescheduled.reschedule(FEB.plusMonths(3));
+        assertThat(repaid(rescheduled, null).isOnTime()).isFalse();
+        assertThat(rescheduled.getOriginalRepayMonth()).isEqualTo(APR);
+
+        Loan wentLate = newLoan();
+        assertThat(repaid(wentLate, "INSUFFICIENT_FUNDS").isOnTime()).isFalse();
+
+        Loan open = newLoan();
+        assertThat(open.isOnTime()).isFalse();
+    }
+
+    private static Loan repaid(Loan l, String lateFirst) {
+        if (l.getStatus() == Loan.Status.ACCEPTED) {
+            l.startDisbursing();
+            l.disbursed("dep");
+        }
+        l.startRepaying();
+        if (lateFirst != null) {
+            l.late(lateFirst, APR.plusMonths(1));
+            l.startRepaying();
+        }
+        l.repaid("wd");
+        return l;
+    }
 }

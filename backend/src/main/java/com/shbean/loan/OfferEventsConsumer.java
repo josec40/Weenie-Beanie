@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import com.shbean.events.DeadLetters;
 import com.shbean.events.EventEnvelope;
 import com.shbean.events.EventPublisher;
+import com.shbean.events.Events.CredentialUpdated;
 import com.shbean.events.Events.ForecastUpdated;
 import com.shbean.events.Events.OfferGenerated;
 import com.shbean.events.IdempotencyGuard;
@@ -19,11 +20,12 @@ import com.shbean.events.Topics;
 import com.shbean.loan.OfferEngine.Decision;
 import com.shbean.user.AppUserRepository;
 
-/** forecast.updated -> (re)evaluate the offer -> offer.generated when a new offer is created. */
+/** forecast.updated or a tier change -> (re)evaluate the offer -> offer.generated when a new offer is created. */
 @Component
 public class OfferEventsConsumer {
 
     static final String CONSUMER = "offer";
+    static final String TIER_CONSUMER = "offer-tier";
 
     private final EventPublisher events;
     private final IdempotencyGuard guard;
@@ -49,11 +51,27 @@ public class OfferEventsConsumer {
         if (e.userId() == null) {
             return;
         }
-        UUID snapshotId = events.payload(e, ForecastUpdated.class).snapshotId();
+        refresh(CONSUMER, e, events.payload(e, ForecastUpdated.class).snapshotId());
+    }
+
+    /** A tier change moves the cap, but the forecast is unchanged, so forecast.updated would not fire. */
+    @RetryableTopic(attempts = "4", backoff = @Backoff(delay = 2000),
+            sameIntervalTopicReuseStrategy = SameIntervalTopicReuseStrategy.SINGLE_TOPIC,
+            retryTopicSuffix = ".retry", dltTopicSuffix = ".dlt", numPartitions = "3", replicationFactor = "1")
+    @KafkaListener(id = TIER_CONSUMER, groupId = "shbean-" + TIER_CONSUMER, topics = Topics.CREDENTIAL_UPDATED)
+    public void onCredentialUpdated(String value) {
+        EventEnvelope e = events.read(value);
+        CredentialUpdated update = events.payload(e, CredentialUpdated.class);
+        if (e.userId() != null && update.tier() != update.previousTier()) {
+            refresh(TIER_CONSUMER, e, null);
+        }
+    }
+
+    private void refresh(String consumer, EventEnvelope e, UUID snapshotId) {
         users.findById(e.userId()).ifPresent(user -> {
             Decision decision = offers.decide(user);
             String explanation = decision.proposal().map(offers::explain).orElse(null);
-            guard.once(CONSUMER, e.eventId(), () -> offers.apply(user.getId(), snapshotId, decision, explanation))
+            guard.once(consumer, e.eventId(), () -> offers.apply(user.getId(), snapshotId, decision, explanation))
                     .filter(OfferService.Refresh::created)
                     .flatMap(OfferService.Refresh::open)
                     .ifPresent(o -> events.publish(Topics.OFFER_GENERATED, user.getId(), new OfferGenerated(o.getId(),

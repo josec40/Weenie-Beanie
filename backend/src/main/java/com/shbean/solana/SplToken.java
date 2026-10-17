@@ -11,6 +11,7 @@ import com.shbean.solana.SolanaClient.Instruction;
 public final class SplToken {
 
     public static final String TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+    public static final String TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
     public static final String ASSOCIATED_TOKEN_PROGRAM = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
     public static final String SYSTEM_PROGRAM = "11111111111111111111111111111111";
 
@@ -22,8 +23,12 @@ public final class SplToken {
     }
 
     public static String associatedTokenAddress(SolanaClient client, String owner, String mint) {
+        return associatedTokenAddress(client, owner, mint, TOKEN_PROGRAM);
+    }
+
+    public static String associatedTokenAddress(SolanaClient client, String owner, String mint, String tokenProgram) {
         return client.findProgramAddress(
-                List.of(Base58.decode(owner), Base58.decode(TOKEN_PROGRAM), Base58.decode(mint)),
+                List.of(Base58.decode(owner), Base58.decode(tokenProgram), Base58.decode(mint)),
                 ASSOCIATED_TOKEN_PROGRAM).address();
     }
 

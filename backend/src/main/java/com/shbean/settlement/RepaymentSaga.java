@@ -13,7 +13,9 @@ import com.shbean.cashflow.NessieSyncService;
 import com.shbean.cashflow.TransactionStore;
 import com.shbean.events.EventEnvelope;
 import com.shbean.events.EventPublisher;
+import com.shbean.events.Events.CredentialUpdateRequested;
 import com.shbean.events.Events.LoanEvent;
+import com.shbean.events.Events.RepaymentOutcome;
 import com.shbean.events.Topics;
 import com.shbean.loan.Loan;
 import com.shbean.loan.LoanProperties;
@@ -146,6 +148,9 @@ public class RepaymentSaga {
         LoanEvent event = LoanService.event(done, month, null);
         events.publish(Topics.LOAN_FIAT_SETTLED, user.getId(), event, cause);
         events.publish(Topics.LOAN_REPAID, user.getId(), event, cause);
+        events.publish(Topics.CREDENTIAL_UPDATE_REQUESTED, user.getId(), new CredentialUpdateRequested(loanId,
+                done.isOnTime() ? RepaymentOutcome.ON_TIME : RepaymentOutcome.LATE, done.getTotalDue(), month.toString()),
+                cause);
     }
 
     private void late(UUID loanId, String reason, YearMonth month, EventEnvelope cause) {

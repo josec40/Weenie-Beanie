@@ -11,7 +11,50 @@ type Query {
     currentOffer: LoanOffer
     loans: [Loan!]!
     creditProfile: CreditProfile!
+    "Repayment reputation (mirror of the on-chain credential when Solana is enabled)."
+    credential: Credential!
     demoClock: DemoClock!
+    notifications(limit: Int = 20): [Notification!]!
+    unreadNotifications: Int!
+    "Demo tooling state; controls are only enabled for the demo account in dev."
+    demoStatus: DemoStatus!
+}
+
+type Subscription {
+    loanUpdated: Loan!
+    offerCreated: LoanOffer!
+    credentialUpdated: Credential!
+    balanceUpdated: Balance!
+    notificationAdded: Notification!
+}
+
+type Notification {
+    id: ID!
+    "OFFER, LOAN_DISBURSED, LOAN_REPAID, LOAN_DEFAULTED, REPAYMENT_PAUSED, SETTLEMENT_PROBLEM, TIER_UP, TIER_DOWN or BEANSTALK_GREW"
+    type: String!
+    title: String!
+    body: String!
+    "In-app route to open, e.g. /loans"
+    link: String
+    createdAt: String!
+    read: Boolean!
+}
+
+type Balance {
+    balance: Float
+    asOf: String!
+}
+
+type DemoStatus {
+    clock: DemoClock!
+    isDemoUser: Boolean!
+    "IDLE, RUNNING, DONE or FAILED"
+    resetState: String!
+    resetMessage: String
+    bankAddress: String
+    bankUrl: String
+    poolUrl: String
+    reputationConfigUrl: String
 }
 
 type Mutation {
@@ -32,6 +75,10 @@ type Mutation {
     repayLoanEarly(loanId: ID!): Loan!
     "Demo only: close the current simulated month and open the next."
     advanceMonth: DemoClock!
+    "Demo only: wipe and re-seed the demo account in the background; poll demoStatus for progress."
+    resetDemo: DemoStatus!
+    "Marks the given notifications read; an empty or missing list marks all. Returns how many changed."
+    markNotificationsRead(ids: [ID!]): Int!
 }
 
 type LoanOffer {
@@ -87,6 +134,28 @@ type CreditProfile {
     cap: Float!
     "OFFER_AVAILABLE, HAS_OPEN_LOAN, NO_SHORTFALL, EXCEEDS_TIER_CAP or NO_REPAYMENT_MONTH"
     offerStatus: String!
+}
+
+type Credential {
+    onChain: Boolean!
+    tier: Int!
+    cap: Float!
+    "Effective on-time repayments needed for the next tier; null at the top tier"
+    nextTierAt: Int
+    "On-time repayments minus two per default"
+    effectiveOnTime: Int!
+    onTimeRepayments: Int!
+    lateRepayments: Int!
+    defaults: Int!
+    totalRepaid: Float!
+    walletAddress: String
+    walletUrl: String
+    "Soulbound token mint; null until the first on-time repayment"
+    credentialMint: String
+    credentialUrl: String
+    credentialTxUrl: String
+    "Public, unauthenticated verification endpoint for partners"
+    verifyUrl: String
 }
 
 type DemoClock {

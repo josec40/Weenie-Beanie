@@ -6,6 +6,7 @@ spring:
 app:
   demo:
     clock-enabled: true
+    seed-credential-history: true
 
 solana:
   enabled: ${SOLANA_ENABLED:true}

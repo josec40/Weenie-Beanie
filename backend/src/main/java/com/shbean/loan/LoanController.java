@@ -110,8 +110,8 @@ public class LoanController {
     }
 
     @MutationMapping
-    public ClockView advanceMonth() {
-        return demo.advanceMonth();
+    public ClockView advanceMonth(@AuthenticationPrincipal Jwt jwt) {
+        return demo.advanceMonth(user(jwt));
     }
 
     private UUID userId(Jwt jwt) {

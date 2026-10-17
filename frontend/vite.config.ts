@@ -6,8 +6,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      '/graphql-ws': { target: 'ws://localhost:8090', ws: true },
       '/graphql': 'http://localhost:8090',
       '/auth': 'http://localhost:8090',
+      '/api': 'http://localhost:8090',
     },
   },
 });

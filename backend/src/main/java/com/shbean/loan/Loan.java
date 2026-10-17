@@ -52,6 +52,9 @@ public class Loan {
     @Column(name = "repay_month", nullable = false)
     private LocalDate repayMonth;
 
+    @Column(name = "original_repay_month", nullable = false, updatable = false)
+    private LocalDate originalRepayMonth;
+
     @Column(name = "grace_until_month")
     private LocalDate graceUntilMonth;
 
@@ -99,6 +102,7 @@ public class Loan {
         this.fee = offer.getFee();
         this.disburseMonth = offer.getShortfallMonth().atDay(1);
         this.repayMonth = offer.getRepaymentMonth().atDay(1);
+        this.originalRepayMonth = repayMonth;
         this.status = Status.ACCEPTED;
         this.createdAt = Instant.now();
         this.updatedAt = createdAt;
@@ -199,6 +203,15 @@ public class Loan {
 
     public BigDecimal getTotalDue() {
         return principal.add(fee);
+    }
+
+    /** Repaid in or before the month agreed at acceptance, without ever going LATE; a reschedule makes it late. */
+    public boolean isOnTime() {
+        return status == Status.REPAID && graceUntilMonth == null && !repayMonth.isAfter(originalRepayMonth);
+    }
+
+    public YearMonth getOriginalRepayMonth() {
+        return YearMonth.from(originalRepayMonth);
     }
 
     public UUID getId() {

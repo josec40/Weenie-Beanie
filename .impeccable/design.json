@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-17T00:00:00Z",
+  "title": "Design System: Weenie Beanie",
+  "extensions": {
+    "colorMeta": {
+      "navy-900": { "role": "primary", "displayName": "Night Navy", "canonical": "#0e2a47", "tonalRamp": ["#081a2d", "#0e2a47", "#163a5f", "#1f4e79", "#4a77a3", "#93b1cf", "#dbe6f1", "#edf3f8"] },
+      "navy-800": { "role": "primary", "displayName": "Deep Harbour", "canonical": "#163a5f", "tonalRamp": ["#081a2d", "#0e2a47", "#163a5f", "#1f4e79", "#4a77a3", "#93b1cf", "#dbe6f1", "#edf3f8"] },
+      "navy-700": { "role": "primary", "displayName": "Harbour Navy", "canonical": "#1f4e79", "tonalRamp": ["#081a2d", "#0e2a47", "#163a5f", "#1f4e79", "#4a77a3", "#93b1cf", "#dbe6f1", "#edf3f8"] },
+      "navy-50": { "role": "primary", "displayName": "Mist Navy", "canonical": "#edf3f8", "tonalRamp": ["#081a2d", "#0e2a47", "#163a5f", "#1f4e79", "#4a77a3", "#93b1cf", "#dbe6f1", "#edf3f8"] },
+      "green-700": { "role": "secondary", "displayName": "Growth Green", "canonical": "#2e7d4f", "tonalRamp": ["#163f27", "#225f3b", "#2e7d4f", "#4f9a5c", "#7db665", "#a9d29a", "#d3ead0", "#e9f4ed"] },
+      "leaf": { "role": "secondary", "displayName": "Leaf", "canonical": "#7db665", "tonalRamp": ["#163f27", "#225f3b", "#2e7d4f", "#4f9a5c", "#7db665", "#a9d29a", "#d3ead0", "#e9f4ed"] },
+      "green-50": { "role": "secondary", "displayName": "Sprout Wash", "canonical": "#e9f4ed", "tonalRamp": ["#163f27", "#225f3b", "#2e7d4f", "#4f9a5c", "#7db665", "#a9d29a", "#d3ead0", "#e9f4ed"] },
+      "stalk-ground": { "role": "secondary", "displayName": "Stalk Ground", "canonical": "#f3f8f4", "tonalRamp": ["#163f27", "#225f3b", "#2e7d4f", "#4f9a5c", "#7db665", "#a9d29a", "#d3ead0", "#f3f8f4"] },
+      "bean": { "role": "tertiary", "displayName": "Pinto Tan", "canonical": "#c08a53", "tonalRamp": ["#3d2814", "#7f5226", "#a06d3b", "#c08a53", "#d4a77a", "#e5c7a6", "#f3e4d3", "#fbf4ec"] },
+      "bean-dark": { "role": "tertiary", "displayName": "Bean Speck", "canonical": "#7f5226", "tonalRamp": ["#3d2814", "#7f5226", "#a06d3b", "#c08a53", "#d4a77a", "#e5c7a6", "#f3e4d3", "#fbf4ec"] },
+      "bean-wash": { "role": "tertiary", "displayName": "Bean Wash", "canonical": "#f8f1ea", "tonalRamp": ["#3d2814", "#7f5226", "#a06d3b", "#c08a53", "#d4a77a", "#e5c7a6", "#f3e4d3", "#f8f1ea"] },
+      "soil": { "role": "tertiary", "displayName": "Soil", "canonical": "#4e3b2c", "tonalRamp": ["#1f170f", "#33271c", "#4e3b2c", "#6b5442", "#8c7462", "#b09d8e", "#d6cbc2", "#f1ece8"] },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "#13212f", "tonalRamp": ["#13212f", "#2c3b4b", "#44546a", "#5b6b7e", "#8fa0b2", "#c3ced9", "#dfe5eb", "#f4f6f8"] },
+      "ink-2": { "role": "neutral", "displayName": "Slate Ink", "canonical": "#44546a", "tonalRamp": ["#13212f", "#2c3b4b", "#44546a", "#5b6b7e", "#8fa0b2", "#c3ced9", "#dfe5eb", "#f4f6f8"] },
+      "ink-3": { "role": "neutral", "displayName": "Quiet Ink", "canonical": "#5b6b7e", "tonalRamp": ["#13212f", "#2c3b4b", "#44546a", "#5b6b7e", "#8fa0b2", "#c3ced9", "#dfe5eb", "#f4f6f8"] },
+      "line-strong": { "role": "neutral", "displayName": "Strong Hairline", "canonical": "#c3ced9", "tonalRamp": ["#13212f", "#2c3b4b", "#44546a", "#5b6b7e", "#8fa0b2", "#c3ced9", "#dfe5eb", "#f4f6f8"] },
+      "line": { "role": "neutral", "displayName": "Hairline", "canonical": "#dfe5eb", "tonalRamp": ["#13212f", "#2c3b4b", "#44546a", "#5b6b7e", "#8fa0b2", "#c3ced9", "#dfe5eb", "#f4f6f8"] },
+      "ground": { "role": "neutral", "displayName": "Cool Ground", "canonical": "#f4f6f8", "tonalRamp": ["#13212f", "#2c3b4b", "#44546a", "#5b6b7e", "#8fa0b2", "#c3ced9", "#dfe5eb", "#f4f6f8"] },
+      "surface": { "role": "neutral", "displayName": "Surface", "canonical": "#ffffff", "tonalRamp": ["#13212f", "#2c3b4b", "#44546a", "#5b6b7e", "#8fa0b2", "#c3ced9", "#dfe5eb", "#ffffff"] },
+      "focus": { "role": "neutral", "displayName": "Focus Blue", "canonical": "#3a7bc8", "tonalRamp": ["#0f2440", "#1a3f6e", "#28609e", "#3a7bc8", "#6b9dd8", "#9dbfe5", "#cfe0f1", "#eef4fb"] },
+      "presenter-slate": { "role": "neutral", "displayName": "Presenter Slate", "canonical": "#22313f", "tonalRamp": ["#121b23", "#22313f", "#2c3e50", "#46596c", "#6b7c8d", "#98a6b3", "#c9d1d9", "#eef1f4"] },
+      "red": { "role": "alarm", "displayName": "Shortfall Red", "canonical": "#b3261e", "tonalRamp": ["#4d100c", "#7a1712", "#8f1d17", "#b3261e", "#d65a52", "#eda19b", "#f8dedc", "#fcedec"] },
+      "red-deep": { "role": "alarm", "displayName": "Deep Red", "canonical": "#8f1d17", "tonalRamp": ["#4d100c", "#7a1712", "#8f1d17", "#b3261e", "#d65a52", "#eda19b", "#f8dedc", "#fcedec"] },
+      "red-50": { "role": "alarm", "displayName": "Red Wash", "canonical": "#fcedec", "tonalRamp": ["#4d100c", "#7a1712", "#8f1d17", "#b3261e", "#d65a52", "#eda19b", "#f8dedc", "#fcedec"] },
+      "amber": { "role": "alarm", "displayName": "Safeguard Amber", "canonical": "#8a5200", "tonalRamp": ["#3d2400", "#613a00", "#8a5200", "#b06b0a", "#d4913a", "#ecc283", "#fbe3bb", "#fff3df"] },
+      "amber-50": { "role": "alarm", "displayName": "Amber Wash", "canonical": "#fff3df", "tonalRamp": ["#3d2400", "#613a00", "#8a5200", "#b06b0a", "#d4913a", "#ecc283", "#fbe3bb", "#fff3df"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "The one-sentence status answer on Home and the login intro line; key phrase steps to 800." },
+      "headline": { "displayName": "Headline", "purpose": "Page titles (h1)." },
+      "title-lg": { "displayName": "Title Large", "purpose": "The offer card headline." },
+      "title": { "displayName": "Title", "purpose": "Card and panel headings (h2)." },
+      "figure": { "displayName": "Figure", "purpose": "Loan principal on loan cards; record figures use 750 at 1.5rem." },
+      "body": { "displayName": "Body", "purpose": "Running text; long explanations cap at 72ch with 1.6 line height." },
+      "body-sm": { "displayName": "Body Small", "purpose": "Field labels, figcaptions, notification text." },
+      "label": { "displayName": "Label", "purpose": "Status chips, table headers, record terms. Sentence case, never uppercase." },
+      "wordmark": { "displayName": "Wordmark", "purpose": "\"Weenie Beanie\" beside the bean token in the app bar and login." }
+    },
+    "shadows": [
+      { "name": "shadow", "value": "0 1px 2px rgba(14, 42, 71, 0.06), 0 8px 24px -8px rgba(14, 42, 71, 0.12)", "purpose": "Resting: panels, chart cards, beanstalk cards." },
+      { "name": "shadow-lift", "value": "0 2px 4px rgba(14, 42, 71, 0.08), 0 16px 40px -12px rgba(14, 42, 71, 0.28)", "purpose": "Lifted: offer and loan cards, bell panel, toasts, presenter panel and toggle." },
+      { "name": "app-bar", "value": "0 1px 0 rgba(255, 255, 255, 0.06), 0 6px 20px -12px rgba(0, 0, 0, 0.5)", "purpose": "The sticky navy app bar only." },
+      { "name": "focus-halo", "value": "0 0 0 3px rgba(58, 123, 200, 0.35)", "purpose": "Focused inputs." },
+      { "name": "focus-outline", "value": "outline: 3px solid #3a7bc8; outline-offset: 2px", "purpose": "Global :focus-visible ring." }
+    ],
+    "motion": [
+      { "name": "ease-out", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Default decelerating ease for all state transitions, popovers and growth." },
+      { "name": "ease-in-drop", "value": "cubic-bezier(0.5, 0, 0.75, 0)", "purpose": "The planting bean falling into the soil." },
+      { "name": "duration-state", "value": "160ms", "purpose": "Colour, border and shadow changes on buttons, inputs, nav links; skip-link slide." },
+      { "name": "duration-nudge", "value": "200ms", "purpose": "Trailing link arrow slides 3px right on hover." },
+      { "name": "rise", "value": "opacity 0 → 1, translateY(8px) → 0; 220ms bell panel, 240ms presenter panel, 320ms toast", "purpose": "Overlay entrance." },
+      { "name": "bean-plant", "value": "650ms", "purpose": "Bean drops 46px into the soil and fades." },
+      { "name": "stalk-grow", "value": "900ms (after 450ms when a bean was planting)", "purpose": "Stalk stroke draws up to its new height." },
+      { "name": "leaf-unfurl", "value": "600ms, starting 650ms after the stalk", "purpose": "New leaf scales from 0 at its base." },
+      { "name": "shimmer", "value": "1.4s linear infinite", "purpose": "Skeleton loading placeholders." },
+      { "name": "reduced-motion", "value": "animation and transition durations 1ms; beanstalk renders final state", "purpose": "prefers-reduced-motion: reduce." }
+    ],
+    "breakpoints": [
+      { "name": "stack", "value": "1023px", "purpose": "Two-column pages collapse to one; sticky asides become static." },
+      { "name": "mobile", "value": "819px", "purpose": "Top nav hides; bottom tab bar appears; popovers become sheets." },
+      { "name": "container", "value": "1180px", "purpose": "Max content width." },
+      { "name": "bar-height", "value": "64px", "purpose": "App bar height; offsets sticky elements." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Night Navy action; one per decision.",
+      "html": "<button class=\"ds-btn\">Accept $250.00</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 18px; border: 1px solid transparent; border-radius: 10px; background: var(--navy-900, #0e2a47); color: #fff; font-family: 'Manrope Variable', system-ui, sans-serif; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn:hover { background: var(--navy-700, #1f4e79); } .ds-btn:active { background: var(--navy-800, #163a5f); } .ds-btn:focus-visible { outline: 3px solid #3a7bc8; outline-offset: 2px; } .ds-btn:disabled { background: #8fa0b2; cursor: not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Outlined alternative beside a primary action.",
+      "html": "<button class=\"ds-btn-secondary\">No Thanks</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 18px; border: 1px solid var(--line-strong, #c3ced9); border-radius: 10px; background: var(--surface, #fff); color: var(--navy-900, #0e2a47); font-family: 'Manrope Variable', system-ui, sans-serif; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-secondary:hover { background: var(--navy-50, #edf3f8); border-color: var(--navy-700, #1f4e79); } .ds-btn-secondary:focus-visible { outline: 3px solid #3a7bc8; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Labelled field with navy border and blue halo on focus.",
+      "html": "<label class=\"ds-field\">Amount<input class=\"ds-input\" placeholder=\"$0.00\" /></label>",
+      "css": ".ds-field { display: grid; gap: 6px; font-family: 'Manrope Variable', system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; color: var(--ink-2, #44546a); } .ds-input { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line-strong, #c3ced9); border-radius: 8px; background: var(--surface, #fff); color: var(--ink, #13212f); font: inherit; font-size: 1rem; font-weight: 500; transition: border-color 160ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-input::placeholder { color: #6b7a8c; } .ds-input:hover { border-color: #9fb0c1; } .ds-input:focus-visible { outline: none; border-color: var(--navy-700, #1f4e79); box-shadow: 0 0 0 3px rgba(58, 123, 200, 0.35); }"
+    },
+    {
+      "name": "App Bar",
+      "kind": "nav",
+      "refersTo": "app-bar",
+      "description": "Sticky 64px navy bar with bean wordmark and underline-active nav.",
+      "html": "<header class=\"ds-bar\"><span class=\"ds-wordmark\"><svg width=\"26\" height=\"26\" viewBox=\"-2 -1 24 24\" aria-hidden=\"true\"><path fill=\"#c08a53\" d=\"M9 1.5c6-.8 10.2 3.8 9 9.8-1 5.4-6 7-9.1 5.5-2-1-3.4-.1-4.7 1.8C2.4 21.2-1.6 19.6.6 14.4 1.9 11.3 2.8 9.7 3 7.9 3.4 5.7 5.9 2 9 1.5Z\"/><circle fill=\"#7f5226\" cx=\"12\" cy=\"7\" r=\"1.2\"/><circle fill=\"#7f5226\" cx=\"7\" cy=\"12.5\" r=\"1\"/></svg>Weenie Beanie</span><nav class=\"ds-nav\"><a href=\"#\" class=\"ds-nav-link is-active\">Home</a><a href=\"#\" class=\"ds-nav-link\">Forecast</a><a href=\"#\" class=\"ds-nav-link\">Loans</a><a href=\"#\" class=\"ds-nav-link\">Beanstalk</a></nav><button class=\"ds-icon-btn\" aria-label=\"Notifications\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10.268 21a2 2 0 0 0 3.464 0\"/><path d=\"M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326\"/></svg></button></header>",
+      "css": ".ds-bar { display: flex; align-items: center; gap: 28px; height: 64px; padding: 0 24px; background: var(--navy-900, #0e2a47); color: #fff; font-family: 'Manrope Variable', system-ui, sans-serif; box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06), 0 6px 20px -12px rgba(0, 0, 0, 0.5); } .ds-wordmark { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; font-size: 1.15rem; letter-spacing: -0.02em; white-space: nowrap; } .ds-nav { display: flex; align-self: stretch; gap: 4px; } .ds-nav-link { display: flex; align-items: center; padding: 0 12px; color: rgba(255, 255, 255, 0.78); font-weight: 600; font-size: 0.95rem; text-decoration: none; border-top: 3px solid transparent; border-bottom: 3px solid transparent; transition: color 160ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-nav-link:hover { color: #fff; border-bottom-color: rgba(255, 255, 255, 0.35); } .ds-nav-link.is-active { color: #fff; border-bottom-color: #fff; } .ds-nav-link:focus-visible { outline: 3px solid #3a7bc8; outline-offset: 2px; } .ds-icon-btn { display: inline-grid; place-items: center; width: 40px; height: 40px; margin-left: auto; padding: 0; border: 0; border-radius: 10px; background: transparent; color: #fff; cursor: pointer; } .ds-icon-btn:hover { background: rgba(255, 255, 255, 0.14); } .ds-icon-btn:focus-visible { outline: 3px solid #3a7bc8; outline-offset: 2px; }"
+    },
+    {
+      "name": "Status Chips",
+      "kind": "chip",
+      "refersTo": "status-calm",
+      "description": "Loan state pills; colour bound to meaning.",
+      "html": "<div class=\"ds-chips\"><span class=\"ds-status ds-status--calm\">Active</span><span class=\"ds-status ds-status--good\">Repaid</span><span class=\"ds-status ds-status--warn\">Repayment paused</span><span class=\"ds-status ds-status--bad\">Defaulted</span></div>",
+      "css": ".ds-chips { display: flex; flex-wrap: wrap; gap: 8px; } .ds-status { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-family: 'Manrope Variable', system-ui, sans-serif; font-size: 0.8rem; font-weight: 700; white-space: nowrap; } .ds-status--calm { background: var(--navy-50, #edf3f8); color: var(--navy-700, #1f4e79); } .ds-status--good { background: var(--green-50, #e9f4ed); color: var(--green-700, #2e7d4f); } .ds-status--warn { background: var(--amber-50, #fff3df); color: var(--amber, #8a5200); } .ds-status--bad { background: var(--red-50, #fcedec); color: var(--red, #b3261e); }"
+    },
+    {
+      "name": "Offer Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Lifted decision card: headline, AI why-note, hairline terms, consent, actions.",
+      "html": "<section class=\"ds-offer\"><h2 class=\"ds-offer-title\">Cover August 2027 with $250.00</h2><p class=\"ds-why\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z\"/></svg><span>Your insurance payment lands in August, the month after your bonus is spent.</span></p><dl class=\"ds-terms\"><div><dt>You receive</dt><dd>$250.00 at the start of August 2027</dd></div><div><dt>Flat fee</dt><dd>$5.00, no interest</dd></div><div><dt>Auto-repayment</dt><dd>$255.00 at the end of October 2027</dd></div></dl></section>",
+      "css": ".ds-offer { display: grid; gap: 18px; max-width: 460px; padding: 24px; border-radius: 12px; background: var(--surface, #fff); color: var(--ink, #13212f); font-family: 'Manrope Variable', system-ui, sans-serif; box-shadow: 0 2px 4px rgba(14, 42, 71, 0.08), 0 16px 40px -12px rgba(14, 42, 71, 0.28); } .ds-offer-title { margin: 0; font-size: 1.35rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; } .ds-why { display: flex; gap: 10px; margin: 0; padding: 12px 14px; border-radius: 8px; background: var(--navy-50, #edf3f8); font-size: 0.95rem; line-height: 1.5; } .ds-why svg { flex: none; margin-top: 3px; color: var(--navy-700, #1f4e79); } .ds-terms { display: grid; margin: 0; } .ds-terms > div { display: grid; grid-template-columns: minmax(7.5rem, max-content) 1fr; gap: 16px; padding: 10px 0; border-top: 1px solid var(--line, #dfe5eb); } .ds-terms > div:last-child { border-bottom: 1px solid var(--line, #dfe5eb); } .ds-terms dt { color: var(--ink-3, #5b6b7e); font-size: 0.875rem; font-weight: 600; } .ds-terms dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Bean Claim",
+      "kind": "custom",
+      "refersTo": "bean-claim",
+      "description": "Tan row inside an open loan card: the bean is claimed, not yet planted.",
+      "html": "<div class=\"ds-bean-claim\"><svg width=\"30\" height=\"30\" viewBox=\"-2 -1 24 24\" aria-hidden=\"true\"><path fill=\"#c08a53\" d=\"M9 1.5c6-.8 10.2 3.8 9 9.8-1 5.4-6 7-9.1 5.5-2-1-3.4-.1-4.7 1.8C2.4 21.2-1.6 19.6.6 14.4 1.9 11.3 2.8 9.7 3 7.9 3.4 5.7 5.9 2 9 1.5Z\"/><circle fill=\"#7f5226\" cx=\"12\" cy=\"7\" r=\"1.2\"/><circle fill=\"#7f5226\" cx=\"7\" cy=\"12.5\" r=\"1\"/></svg><p><strong>Bean claimed.</strong> Repay on time in October and it's planted as a new leaf.</p></div>",
+      "css": ".ds-bean-claim { display: flex; gap: 12px; align-items: center; max-width: 420px; padding: 12px 14px; border-radius: 8px; background: var(--bean-wash, #f8f1ea); color: var(--ink, #13212f); font-family: 'Manrope Variable', system-ui, sans-serif; font-size: 0.9rem; } .ds-bean-claim svg { flex: none; } .ds-bean-claim p { margin: 0; }"
+    },
+    {
+      "name": "Beanstalk",
+      "kind": "custom",
+      "description": "Signature SVG: one segment and leaf per on-time repayment; dashed tier marks at 2 and 5 leaves; soil base.",
+      "html": "<svg class=\"ds-beanstalk\" viewBox=\"0 120 220 216\" role=\"img\" aria-label=\"A beanstalk with 2 leaves\"><g class=\"ds-tier\"><line x1=\"8\" x2=\"212\" y1=\"141\" y2=\"141\" stroke-dasharray=\"4 4\"/><text x=\"10\" y=\"135\">Tier 2 · $1,000</text></g><g class=\"ds-tier is-reached\"><line x1=\"8\" x2=\"212\" y1=\"243\" y2=\"243\"/><text x=\"10\" y=\"237\">Tier 1 · $500</text></g><path class=\"ds-stalk\" d=\"M110 304 Q 116 270 112 240 T 114 208\"/><g transform=\"translate(113 259)\"><path class=\"ds-leaf\" d=\"M0 0 C 8 -13, 28 -17, 40 -7 C 29 3, 12 6, 0 0 Z\"/><path class=\"ds-vein\" d=\"M2 0 C 14 -5, 26 -7, 36 -6\"/></g><g transform=\"translate(112 225) scale(-1 1)\"><path class=\"ds-leaf\" d=\"M0 0 C 8 -13, 28 -17, 40 -7 C 29 3, 12 6, 0 0 Z\"/><path class=\"ds-vein\" d=\"M2 0 C 14 -5, 26 -7, 36 -6\"/></g><path class=\"ds-soil\" d=\"M-400 308 L 4 304 Q 110 288 216 304 L 620 308 L 620 336 L -400 336 Z\"/></svg>",
+      "css": ".ds-beanstalk { display: block; width: 200px; height: auto; overflow: visible; font-family: 'Manrope Variable', system-ui, sans-serif; background: var(--stalk-ground, #f3f8f4); border-radius: 12px; } .ds-stalk { fill: none; stroke: var(--green-700, #2e7d4f); stroke-width: 6; stroke-linecap: round; } .ds-leaf { fill: var(--leaf, #7db665); stroke: var(--green-700, #2e7d4f); stroke-width: 1.5; stroke-linejoin: round; transform-box: fill-box; transform-origin: left center; transition: transform 600ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-beanstalk:hover .ds-leaf { transform: scale(1.06); } .ds-vein { fill: none; stroke: var(--green-700, #2e7d4f); stroke-width: 1; opacity: 0.7; } .ds-soil { fill: var(--soil, #4e3b2c); } .ds-tier line { stroke: var(--line-strong, #c3ced9); stroke-width: 1; } .ds-tier text { fill: var(--ink-3, #5b6b7e); font-size: 11px; font-weight: 700; } .ds-tier.is-reached line { stroke: var(--green-700, #2e7d4f); opacity: 0.45; } .ds-tier.is-reached text { fill: var(--green-700, #2e7d4f); }"
+    },
+    {
+      "name": "Toast",
+      "kind": "card",
+      "description": "Lifted live-update toast with meaning-coloured icon and dismiss.",
+      "html": "<div class=\"ds-toast\"><svg class=\"ds-toast-icon\" width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M7 20h10\"/><path d=\"M10 20c5.5-2.5.8-6.4 3-10\"/><path d=\"M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z\"/><path d=\"M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z\"/></svg><div class=\"ds-toast-text\"><strong>Your beanstalk grew</strong><span>An on-time repayment planted a new leaf.</span></div><button class=\"ds-toast-close\" aria-label=\"Dismiss\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M18 6 6 18\"/><path d=\"m6 6 12 12\"/></svg></button></div>",
+      "css": ".ds-toast { display: grid; grid-template-columns: 20px 1fr 40px; gap: 12px; align-items: start; width: min(380px, 100%); padding: 14px 8px 14px 16px; border-radius: 12px; background: var(--surface, #fff); font-family: 'Manrope Variable', system-ui, sans-serif; box-shadow: 0 2px 4px rgba(14, 42, 71, 0.08), 0 16px 40px -12px rgba(14, 42, 71, 0.28); animation: ds-rise 320ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-toast-icon { margin-top: 2px; color: var(--green-700, #2e7d4f); } .ds-toast-text { display: grid; gap: 2px; font-size: 0.9rem; color: var(--ink-2, #44546a); } .ds-toast-text strong { color: var(--ink, #13212f); } .ds-toast-close { display: inline-grid; place-items: center; width: 40px; height: 40px; margin-top: -8px; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--ink-2, #44546a); cursor: pointer; transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-toast-close:hover { background: var(--navy-50, #edf3f8); color: var(--navy-900, #0e2a47); } .ds-toast-close:focus-visible { outline: 3px solid #3a7bc8; outline-offset: 2px; } @keyframes ds-rise { from { opacity: 0; transform: translateY(8px); } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Answer, Then the Beanstalk",
+    "overview": "Weenie Beanie dresses as a serious bank: a deep night-navy app bar, a cool near-white ground, white work surfaces with soft lifted shadows, and Manrope set tight with tabular figures. Inside that sober shell, the first thing on every customer screen is a plain sentence that answers \"am I going to be OK?\" at display size, with a shortfall amount, when there is one, set in red. Density is calm, not sparse: one answer, one chart, one decision card per viewport, separated by space and shadow rather than rules and boxes.\n\nThe one place the system becomes illustrative is the beanstalk. A hand-built SVG plant grows one segment and unfurls one leaf per on-time repayment, carries dashed tier marks at two and five leaves, and holds a tan bean beside the soil while a loan is open. Everything colourful in the product is tied to a meaning: green is growth, tan is the bean, red and amber are trouble. Navy does the rest of the work.\n\nThe system refuses the KPI-tile dashboard and the scroll-everything single page. It does not use a Capital One logo; the only reference is the footer line \"Built on Capital One services\". The product logo is in development, so the brand mark is the wordmark with the bean token.",
+    "keyCharacteristics": [
+      "Navy shell, cool ground, white cards, soft two-level shadow.",
+      "The status sentence is the largest type on the page; a shortfall amount inside it turns red, a covered sentence stays ink.",
+      "Colour is semantic: green only for growth, tan only for the bean, red and amber only for shortfall, late and safeguard states.",
+      "Every figure is tabular.",
+      "One illustrated signature (the beanstalk); everything else is plain banking UI with Lucide line icons.",
+      "Motion is short and decelerating; growth is the only slow, celebratory animation, and it is static under reduced motion."
+    ],
+    "rules": [
+      { "name": "The Growth Is Green Rule", "body": "Green appears only where something grew or went right: the beanstalk, reached tiers, repaid loans, positive figures, the completed final step. It is never a generic \"success\" decoration or a brand accent.", "section": "colors" },
+      { "name": "The Bean Is Tan Rule", "body": "Tan belongs to the bean and nothing else. If a surface is tan, a bean is on it.", "section": "colors" },
+      { "name": "The Alarm Budget Rule", "body": "Red and amber appear only for shortfall, late, safeguard and default states. A calm screen has no red on it.", "section": "colors" },
+      { "name": "The Answer Is the Headline Rule", "body": "The display size is reserved for the status sentence that answers the customer's question. Nothing else on the page is larger.", "section": "typography" },
+      { "name": "The Tabular Money Rule", "body": "Every amount, date and count uses tabular figures (font-variant-numeric: tabular-nums), including chart axis ticks.", "section": "typography" },
+      { "name": "The Two Heights Rule", "body": "There are two card heights: resting for information, lifted for decisions and overlays. Do not invent a third.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do lead each customer screen with one plain sentence at Display size; only a shortfall amount inside it turns Red (at 800 weight), and a covered sentence stays Ink.",
+      "Do use Night Navy for the app bar and every primary action, and Harbour Navy for links.",
+      "Do separate cards with the Resting or Lifted shadow on Cool Ground, not with borders.",
+      "Do set every figure tabular, including chart ticks and table cells.",
+      "Do reference the CSS custom properties in frontend/src/index.css for colour; never re-type a hex in a component.",
+      "Do keep controls at 44px minimum height (36px small, 40px icon) and show the 3px Focus Blue ring on keyboard focus.",
+      "Do use Lucide line icons at 16–22px, inheriting the text colour unless a meaning colour applies.",
+      "Do honour reduced motion: the beanstalk renders its final state and all transitions collapse."
+    ],
+    "donts": [
+      "Don't build KPI-tile dashboards or scroll-everything single pages; one answer, one chart, one decision.",
+      "Don't use green for anything that did not grow or succeed, or tan for anything that is not a bean.",
+      "Don't put red or amber on a calm screen.",
+      "Don't add uppercase labels, tracked-out eyebrows or kickers above headings; labels are sentence case at 0.8rem bold.",
+      "Don't add a third shadow height or put borders on cards.",
+      "Don't show a Capital One logo; the footer line \"Built on Capital One services\" is the only reference.",
+      "Don't let Presenter Slate or presenter controls leak into customer UI."
+    ]
+  }
+}

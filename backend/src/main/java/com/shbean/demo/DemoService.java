@@ -57,10 +57,26 @@ public class DemoService {
         return new ClockView(clock.currentMonth(), clock.offset(), enabled);
     }
 
-    public synchronized ClockView advanceMonth() {
+    public boolean enabled() {
+        return enabled;
+    }
+
+    public boolean isDemoUser(AppUser user) {
+        return user != null && demo.email() != null && user.getEmail().equalsIgnoreCase(demo.email().strip());
+    }
+
+    /** Demo tooling is dev-only and limited to the demo persona (the clock is global). */
+    public void requireDemoUser(AppUser caller) {
         if (!enabled) {
             throw new IllegalArgumentException("The demo clock is disabled");
         }
+        if (!isDemoUser(caller)) {
+            throw new IllegalArgumentException("Demo controls are only available to the demo account");
+        }
+    }
+
+    public synchronized ClockView advanceMonth(AppUser caller) {
+        requireDemoUser(caller);
         YearMonth closing = clock.currentMonth();
         demoUser().ifPresent(u -> {
             poster.postAll(u.getNessieCheckingAccountId(),

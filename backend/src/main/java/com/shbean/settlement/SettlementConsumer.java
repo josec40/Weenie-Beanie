@@ -1,5 +1,6 @@
 package com.shbean.settlement;
 
+import java.math.BigDecimal;
 import java.time.YearMonth;
 import java.util.UUID;
 
@@ -19,7 +20,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.shbean.events.DeadLetters;
 import com.shbean.events.EventEnvelope;
 import com.shbean.events.EventPublisher;
+import com.shbean.events.Events.CredentialUpdateRequested;
 import com.shbean.events.Events.LoanEvent;
+import com.shbean.events.Events.RepaymentOutcome;
 import com.shbean.events.Topics;
 import com.shbean.loan.Loan;
 import com.shbean.loan.LoanRepository;
@@ -83,21 +86,25 @@ public class SettlementConsumer {
         attempt("Repayment", req, () -> repayment.run(req.loanId(), YearMonth.parse(req.month()), e));
     }
 
-    /** Records the default in the on-chain escrow (no-op in fiat-only mode or if the loan never reached the chain). */
+    /** Records the default in the escrow (if the loan reached the chain), then requests the reputation update. */
     @RetryableTopic(attempts = RETRY_ATTEMPTS, backoff = @Backoff(delayExpression = RETRY_DELAY),
             sameIntervalTopicReuseStrategy = SameIntervalTopicReuseStrategy.SINGLE_TOPIC,
             retryTopicSuffix = ".retry", dltTopicSuffix = ".dlt", numPartitions = "3", replicationFactor = "1")
     @KafkaListener(id = DEFAULT, groupId = "shbean-" + DEFAULT, topics = Topics.LOAN_DEFAULTED,
             properties = {"max.poll.interval.ms=900000", "max.poll.records=5"})
     public void onDefaulted(String value) {
+        EventEnvelope e = events.read(value);
+        LoanEvent req = events.payload(e, LoanEvent.class);
         LoanLedger ledger = chain.getIfAvailable();
-        if (ledger == null) {
-            return;
-        }
-        LoanEvent req = events.payload(events.read(value), LoanEvent.class);
         attempt("Default", req, () -> loans.findById(req.loanId())
                 .filter(l -> l.getStatus() == Loan.Status.DEFAULTED)
-                .ifPresent(ledger::markDefault));
+                .ifPresent(l -> {
+                    if (ledger != null) {
+                        ledger.markDefault(l);
+                    }
+                    events.publish(Topics.CREDENTIAL_UPDATE_REQUESTED, l.getUserId(), new CredentialUpdateRequested(
+                            l.getId(), RepaymentOutcome.DEFAULT, BigDecimal.ZERO, req.month()), e);
+                }));
     }
 
     private static void attempt(String what, LoanEvent req, Runnable step) {

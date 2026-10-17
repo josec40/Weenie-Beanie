@@ -10,8 +10,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Component;
 
 import com.shbean.cashflow.NessieSyncService;
@@ -33,9 +34,8 @@ import com.shbean.user.AppUser;
 import com.shbean.user.AppUserRepository;
 import com.shbean.user.DemoProperties;
 
-/** Creates the "Alex" scenario in Nessie for the demo user (once), then runs an initial sync. */
+/** Creates the "Alex" scenario in Nessie for the demo user (once), then runs an initial sync. Runs on startup in dev. */
 @Component
-@Profile("dev")
 @Order(2)
 public class DemoNessieSeeder implements ApplicationRunner {
 
@@ -50,9 +50,10 @@ public class DemoNessieSeeder implements ApplicationRunner {
     private final EventPublisher events;
     private final DemoPoster poster;
     private final DemoClock clock;
+    private final Environment env;
 
     public DemoNessieSeeder(NessieClient nessie, AppUserRepository users, NessieSyncService sync, DemoProperties demo,
-                            EventPublisher events, DemoPoster poster, DemoClock clock) {
+                            EventPublisher events, DemoPoster poster, DemoClock clock, Environment env) {
         this.nessie = nessie;
         this.users = users;
         this.sync = sync;
@@ -60,11 +61,13 @@ public class DemoNessieSeeder implements ApplicationRunner {
         this.events = events;
         this.poster = poster;
         this.clock = clock;
+        this.env = env;
     }
 
     @Override
     public void run(ApplicationArguments args) {
-        if (!demo.seedNessie() || demo.email() == null || demo.email().isBlank()) {
+        if (!env.acceptsProfiles(Profiles.of("dev")) || !demo.seedNessie() || demo.email() == null
+                || demo.email().isBlank()) {
             return;
         }
         AppUser user = users.findByEmail(demo.email().toLowerCase(Locale.ROOT)).orElse(null);
@@ -72,15 +75,20 @@ public class DemoNessieSeeder implements ApplicationRunner {
             return;
         }
         try {
-            if (user.getNessieCheckingAccountId() == null) {
-                seed(user);
-            }
-            if (sync.sync(user).inserted() == 0) {
-                // Nothing new to ingest, but still refresh the forecast snapshot (the month may have rolled over).
-                events.publish(Topics.CASHFLOW_CHANGED, user.getId(), new CashflowChanged(CashflowReason.TRANSACTIONS));
-            }
+            seedAndSync(user);
         } catch (RuntimeException e) {
             log.warn("Demo Nessie seeding/sync failed: {}", e.getMessage());
+        }
+    }
+
+    /** Seeds the scenario if the user has no linked account yet, then syncs; also used by the demo reset. */
+    public void seedAndSync(AppUser user) {
+        if (user.getNessieCheckingAccountId() == null) {
+            seed(user);
+        }
+        if (sync.sync(user).inserted() == 0) {
+            // Nothing new to ingest, but still refresh the forecast snapshot (the month may have rolled over).
+            events.publish(Topics.CASHFLOW_CHANGED, user.getId(), new CashflowChanged(CashflowReason.TRANSACTIONS));
         }
     }
 
@@ -91,8 +99,12 @@ public class DemoNessieSeeder implements ApplicationRunner {
                 new CreateAccountRequest("Checking", "Alex Checking", 0, DemoScenario.CURRENT_BALANCE));
 
         Map<String, String> merchantIds = new HashMap<>();
-        for (MerchantSpec m : DemoScenario.MERCHANTS) {
-            merchantIds.put(m.key(), nessie.createMerchant(new CreateMerchantRequest(m.name(), m.category(), ADDRESS, GEOCODE)).id());
+        try {
+            merchantIds.putAll(poster.merchantIds());
+        } catch (RuntimeException firstSeed) {
+            for (MerchantSpec m : DemoScenario.MERCHANTS) {
+                merchantIds.put(m.key(), nessie.createMerchant(new CreateMerchantRequest(m.name(), m.category(), ADDRESS, GEOCODE)).id());
+            }
         }
 
         YearMonth anchor = clock.currentMonth();
