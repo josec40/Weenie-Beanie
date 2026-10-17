@@ -4,7 +4,7 @@ import { gql, useQuery } from '@apollo/client';
 import { ArrowLeftRight, ChartColumn, House, LogOut, ReceiptText, Sprout } from 'lucide-react';
 import { signOut } from '../apollo';
 import { useLiveUpdates, type LiveNotification } from '../hooks/useLiveUpdates';
-import { BeanToken } from './Beanstalk';
+import { BeanTile } from './BeanWorld';
 import DemoPanel from './DemoPanel';
 import NotificationBell from './NotificationBell';
 import Toasts from './Toasts';
@@ -28,7 +28,7 @@ const NAV = [
 export function Wordmark({ inverse = false }: { inverse?: boolean }) {
   return (
     <span className={`wordmark${inverse ? ' wordmark--inverse' : ''}`} translate="no">
-      <BeanToken size={26} />
+      <BeanTile size={34} />
       Weenie Beanie
     </span>
   );

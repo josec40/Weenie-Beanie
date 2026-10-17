@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { gql, useMutation, useQuery } from '@apollo/client';
 import { ArrowRight, ExternalLink } from 'lucide-react';
-import { BeanToken } from '../components/Beanstalk';
+import { BeanTile } from '../components/BeanWorld';
 import { LOAN_FIELDS, OPEN_STATUSES, loanCopy, type Loan } from '../components/LoanCards';
 import { monthLong, monthShort, usd } from '../lib/format';
 import { PageSkeleton } from './Home';
@@ -124,7 +124,7 @@ export default function Loans() {
           </dl>
 
           <div className="bean-claim">
-            <BeanToken size={30} />
+            <BeanTile size={36} />
             <p>
               <strong>Bean claimed.</strong>{' '}
               {open.rescheduleCount > 0

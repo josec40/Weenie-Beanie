@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { gql, useMutation } from '@apollo/client';
 import { Sparkles } from 'lucide-react';
 import { monthLong, usd } from '../lib/format';
-import { BeanToken } from './Beanstalk';
+import { BeanStrip, BeanTile } from './BeanWorld';
 
 export type Offer = {
   id: string;
@@ -88,6 +88,7 @@ export function OfferCard({ offer, onChanged }: { offer: Offer; onChanged: () =>
 
   return (
     <section className="offer" aria-labelledby="offer-title">
+      <BeanStrip />
       <h2 id="offer-title">
         Cover {monthLong(offer.shortfallMonth)} with {usd.format(offer.principal)}
       </h2>
@@ -132,7 +133,7 @@ export function OfferCard({ offer, onChanged }: { offer: Offer; onChanged: () =>
       <div className="button-row">
         <button
           type="button"
-          className="button"
+          className="button button--grow"
           disabled={!consent || acceptState.loading}
           onClick={() => void run(() => accept({ variables: { offerId: offer.id, consent } }))}
         >
@@ -190,7 +191,7 @@ export function ActiveLoanCard({ loan }: { loan: Loan }) {
         <p className="form-error">There's a delay settling this loan. No money moves twice; we'll keep retrying.</p>
       )}
       <div className="bean-claim">
-        <BeanToken size={30} />
+        <BeanTile size={36} />
         <p>
           {loan.rescheduleCount > 0 ? (
             <>

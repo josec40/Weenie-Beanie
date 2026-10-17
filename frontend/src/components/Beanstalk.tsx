@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { usdWhole } from '../lib/format';
 
 const W = 220;
@@ -136,9 +136,11 @@ export default function Beanstalk({ onTime, defaults, claimed, tierCaps, tier, v
         const isNewest = i === shown;
         return (
           <g key={i} transform={`translate(${stalkX(y).toFixed(1)} ${y})${left ? ' scale(-1 1)' : ''}`}>
-            <g ref={isNewest ? newLeafRef : undefined} className="beanstalk__leaf">
-              <path d={LEAF} />
-              <path className="beanstalk__vein" d="M2 0 C 14 -5, 26 -7, 36 -6" />
+            <g className="sway sway--stalk" style={{ '--d': `${k * 70}ms` } as CSSProperties}>
+              <g ref={isNewest ? newLeafRef : undefined} className="beanstalk__leaf">
+                <path d={LEAF} />
+                <path className="beanstalk__vein" d="M2 0 C 14 -5, 26 -7, 36 -6" />
+              </g>
             </g>
           </g>
         );
@@ -158,9 +160,11 @@ export default function Beanstalk({ onTime, defaults, claimed, tierCaps, tier, v
       {claimed && (
         <g className="beanstalk__claimed" transform={`translate(${W / 2 + 34} ${SOIL_Y - 30})`}>
           <circle cx={9.5} cy={11} r={17} />
-          <path d={BEAN} />
-          <circle className="beanstalk__speck" cx={12} cy={7} r={1.2} />
-          <circle className="beanstalk__speck" cx={7} cy={12.5} r={1} />
+          <g className="wobble">
+            <path d={BEAN} />
+            <circle className="beanstalk__speck" cx={12} cy={7} r={1.2} />
+            <circle className="beanstalk__speck" cx={7} cy={12.5} r={1} />
+          </g>
         </g>
       )}
 

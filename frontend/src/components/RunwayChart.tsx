@@ -40,7 +40,8 @@ export default function RunwayChart({
             tick={{ fill: '#44546a', fontSize: 12 }}
           />
           <Tooltip
-            cursor={{ fill: 'rgba(14, 42, 71, 0.06)' }}
+            cursor={{ fill: 'rgba(14, 42, 71, 0.06)', radius: 6 } as object}
+            contentStyle={{ borderRadius: 12, border: '1px solid #dbe3eb', boxShadow: '0 8px 24px rgba(14, 42, 71, 0.12)' }}
             formatter={(v: number) => [usd.format(v), 'Ending balance']}
             labelFormatter={(_, payload) => (payload?.[0] ? monthLong(payload[0].payload.month) : '')}
           />

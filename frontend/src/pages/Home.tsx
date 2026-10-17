@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
 import { gql, useQuery } from '@apollo/client';
-import { ArrowRight, RefreshCw } from 'lucide-react';
+import { ArrowRight, ChartColumn, ReceiptText, RefreshCw } from 'lucide-react';
 import Beanstalk from '../components/Beanstalk';
+import { ActionList, ActionRow, BeanIcon, HeroLeaves, ProgressTrack } from '../components/BeanWorld';
 import { ActiveLoanCard, LOAN_FIELDS, OPEN_STATUSES, OfferCard, type Loan, type Offer } from '../components/LoanCards';
 import RunwayChart from '../components/RunwayChart';
 import { addMonths, dateTime, monthLong, usd, usdWhole } from '../lib/format';
@@ -43,6 +44,9 @@ const HOME = gql`
       onTimeRepayments
       defaults
     }
+    recurringExpenses {
+      id
+    }
   }
   ${LOAN_FIELDS}
 `;
@@ -65,6 +69,7 @@ type HomeData = {
     onTimeRepayments: number;
     defaults: number;
   };
+  recurringExpenses: { id: string }[];
 };
 
 export const TIER_CAPS = [200, 500, 1000];
@@ -86,77 +91,115 @@ export default function Home() {
     );
   }
 
-  const { forecast, currentOffer, loans, creditProfile, credential } = data;
+  const { forecast, currentOffer, loans, creditProfile, credential, recurringExpenses } = data;
   const openLoan = loans.find((l) => OPEN_STATUSES.includes(l.status));
   const months = forecast?.months ?? [];
   const firstShortfall = months.find((m) => m.shortfall);
+  const shortMonths = months.filter((m) => m.shortfall).length;
+  const toNext = credential.nextTierAt === null ? 0 : credential.nextTierAt - credential.effectiveOnTime;
 
   return (
     <div className="page home">
-      <section className="answer" aria-labelledby="answer-title">
-        <h1 id="answer-title" className="answer__headline">
-          <Headline months={months} firstShortfall={firstShortfall} hasForecast={Boolean(forecast)} />
-        </h1>
-        {forecast && (
-          <p className="answer__balance">
-            Balance <span className="figure">{usd.format(forecast.startingBalance)}</span>
-            <span className="muted">
-              {forecast.balanceAsOf ? ` as of ${dateTime.format(new Date(forecast.balanceAsOf))}` : ' (not synced yet)'}
-            </span>
-          </p>
-        )}
-        {months.length > 0 && (
-          <figure className="answer__chart">
-            <figcaption>
-              Projected end-of-month balance
-              {firstShortfall && <span className="figcaption__mark"> · first shortfall {monthLong(firstShortfall.month)} (dark red)</span>}
-            </figcaption>
-            <RunwayChart months={months} height={230} selected={firstShortfall?.month ?? null} />
-          </figure>
-        )}
-        <Link to="/forecast" className="text-link">
-          See the month-by-month forecast <ArrowRight aria-hidden="true" size={16} />
-        </Link>
+      <section className="hero" aria-labelledby="answer-title">
+        <div className="hero__inner">
+          <div className="hero__text">
+            <p className="hero__greeting">{greeting()}</p>
+            <h1 id="answer-title" className="hero__headline">
+              <Headline months={months} firstShortfall={firstShortfall} hasForecast={Boolean(forecast)} />
+            </h1>
+            {forecast && (
+              <p className="hero__balance">
+                Balance <span className="figure">{usd.format(forecast.startingBalance)}</span>
+                {forecast.balanceAsOf ? ` as of ${dateTime.format(new Date(forecast.balanceAsOf))}` : ' (not synced yet)'}
+              </p>
+            )}
+          </div>
+          <HeroLeaves />
+        </div>
       </section>
 
-      <div className="home__side">
-        {openLoan ? (
-          <ActiveLoanCard loan={openLoan} />
-        ) : currentOffer ? (
-          <OfferCard offer={currentOffer} onChanged={() => void refetch()} />
-        ) : (
-          <NoOffer status={creditProfile.offerStatus} cap={creditProfile.cap} firstShortfall={firstShortfall?.month} />
-        )}
+      <div className="home__grid">
+        <div className="home__main">
+          {months.length > 0 && (
+            <figure className="card answer__chart">
+              <figcaption>
+                Projected end-of-month balance
+                {firstShortfall && <span className="figcaption__mark"> · first shortfall {monthLong(firstShortfall.month)}</span>}
+              </figcaption>
+              <RunwayChart months={months} height={250} selected={firstShortfall?.month ?? null} />
+            </figure>
+          )}
+          <ActionList label="Shortcuts">
+            <ActionRow
+              to="/forecast"
+              icon={ChartColumn}
+              verb="See"
+              rest="your 12-month forecast"
+              amount={shortMonths ? <span className="neg">{shortMonths} short</span> : 'All covered'}
+            />
+            <ActionRow
+              to="/loans"
+              tone="bean"
+              tile={<BeanIcon />}
+              verb="Track"
+              rest="your micro-loans"
+              amount={openLoan ? usd.format(openLoan.totalDue) : 'None open'}
+            />
+            <ActionRow
+              to="/expenses"
+              icon={ReceiptText}
+              verb="Plan"
+              rest="your recurring expenses"
+              amount={`${recurringExpenses.length}`}
+            />
+          </ActionList>
+        </div>
 
-        <section className="stalk-preview" aria-labelledby="stalk-preview-title">
-          <div className="stalk-preview__text">
-            <h2 id="stalk-preview-title">Your beanstalk</h2>
-            <p>
-              Tier {credential.tier} · limit <span className="figure">{usdWhole.format(credential.cap)}</span>
-            </p>
-            <p className="muted">
-              {credential.nextTierAt === null
-                ? 'Highest tier reached.'
-                : `${credential.nextTierAt - credential.effectiveOnTime} more on-time repayment${
-                    credential.nextTierAt - credential.effectiveOnTime === 1 ? '' : 's'
-                  } to Tier ${credential.tier + 1}.`}
-            </p>
-            <Link to="/beanstalk" className="text-link">
-              How your beanstalk grows <ArrowRight aria-hidden="true" size={16} />
-            </Link>
-          </div>
-          <Beanstalk
-            variant="preview"
-            onTime={credential.onTimeRepayments}
-            defaults={credential.defaults}
-            claimed={Boolean(openLoan)}
-            tier={credential.tier}
-            tierCaps={TIER_CAPS}
-          />
-        </section>
+        <div className="home__side">
+          {openLoan ? (
+            <ActiveLoanCard loan={openLoan} />
+          ) : currentOffer ? (
+            <OfferCard offer={currentOffer} onChanged={() => void refetch()} />
+          ) : (
+            <NoOffer status={creditProfile.offerStatus} cap={creditProfile.cap} firstShortfall={firstShortfall?.month} />
+          )}
+
+          <Link to="/beanstalk" className="card card--link stalk-preview" aria-label={`Your beanstalk: Tier ${credential.tier}, limit ${usdWhole.format(credential.cap)}. Open your beanstalk.`}>
+            <div className="stalk-preview__text">
+              <h2>Your beanstalk</h2>
+              <p>
+                Tier {credential.tier} · limit <span className="figure">{usdWhole.format(credential.cap)}</span>
+              </p>
+              <ProgressTrack
+                label="Progress to the next tier"
+                value={credential.effectiveOnTime}
+                max={credential.nextTierAt ?? Math.max(1, credential.effectiveOnTime)}
+                bubble={`${credential.effectiveOnTime} ${credential.effectiveOnTime === 1 ? 'leaf' : 'leaves'}`}
+                start={`Tier ${credential.tier}`}
+                end={credential.nextTierAt === null ? 'Top tier' : `${toNext} until Tier ${credential.tier + 1}`}
+              />
+              <span className="text-link">
+                How it grows <ArrowRight aria-hidden="true" size={16} />
+              </span>
+            </div>
+            <Beanstalk
+              variant="preview"
+              onTime={credential.onTimeRepayments}
+              defaults={credential.defaults}
+              claimed={Boolean(openLoan)}
+              tier={credential.tier}
+              tierCaps={TIER_CAPS}
+            />
+          </Link>
+        </div>
       </div>
     </div>
   );
+}
+
+function greeting() {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
 }
 
 function Headline({

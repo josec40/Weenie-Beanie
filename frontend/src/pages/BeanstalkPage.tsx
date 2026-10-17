@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { gql, useQuery } from '@apollo/client';
 import { Check, Copy, ExternalLink } from 'lucide-react';
 import Beanstalk from '../components/Beanstalk';
+import { ProgressTrack } from '../components/BeanWorld';
 import { OPEN_STATUSES } from '../components/LoanCards';
 import { usd, usdWhole } from '../lib/format';
 import { PageSkeleton, TIER_CAPS } from './Home';
@@ -94,6 +95,14 @@ export default function BeanstalkPage() {
             ? "You've reached the highest tier."
             : `${toNext} more on-time repayment${toNext === 1 ? '' : 's'} to reach Tier ${c.tier + 1} and a ${usdWhole.format(TIER_CAPS[c.tier + 1])} limit.`}
         </p>
+        <ProgressTrack
+          label="Progress to the next tier"
+          value={c.effectiveOnTime}
+          max={c.nextTierAt ?? Math.max(1, c.effectiveOnTime)}
+          bubble={`${c.effectiveOnTime} ${c.effectiveOnTime === 1 ? 'leaf' : 'leaves'}`}
+          start={`Tier ${c.tier} · ${usdWhole.format(c.cap)}`}
+          end={c.nextTierAt === null ? 'Top tier' : `Tier ${c.tier + 1} · ${usdWhole.format(TIER_CAPS[c.tier + 1])}`}
+        />
       </div>
 
       <div className="beanstalk-page__plant">
