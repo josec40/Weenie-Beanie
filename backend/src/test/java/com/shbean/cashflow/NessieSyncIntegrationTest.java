@@ -1,14 +1,18 @@
 package com.shbean.cashflow;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.awaitility.Awaitility.await;
 import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.times;
@@ -16,15 +20,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
+import com.shbean.TestInfra;
 import com.shbean.cashflow.TransactionStore.MonthlyCashflow;
+import com.shbean.events.IdempotencyGuard;
+import com.shbean.events.Topics;
 import com.shbean.forecast.ForecastService;
 import com.shbean.nessie.NessieClient;
 import com.shbean.nessie.NessieModels.Account;
@@ -34,7 +37,6 @@ import com.shbean.nessie.NessieModels.Transfer;
 import com.shbean.user.AppUser;
 import com.shbean.user.AppUserRepository;
 
-@Testcontainers
 @SpringBootTest(properties = {
         "app.jwt.secret=test-secret-that-is-at-least-32-bytes-long!!",
         "nessie.api-key=test",
@@ -42,12 +44,8 @@ import com.shbean.user.AppUserRepository;
         "spring.ai.model.chat=none",
         "nessie.sync.enabled=false"
 })
+@Import(TestInfra.class)
 class NessieSyncIntegrationTest {
-
-    @Container
-    @ServiceConnection
-    static PostgreSQLContainer<?> db = new PostgreSQLContainer<>(
-            DockerImageName.parse("timescale/timescaledb:latest-pg17").asCompatibleSubstituteFor("postgres"));
 
     @MockitoBean NessieClient nessie;
     @Autowired NessieSyncService sync;
@@ -56,6 +54,7 @@ class NessieSyncIntegrationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired RecurringExpenseService recurring;
     @Autowired ForecastService forecasts;
+    @Autowired IdempotencyGuard guard;
 
     @Test
     void ingestsDeduplicatesAndAggregatesMonthly() {
@@ -93,10 +92,21 @@ class NessieSyncIntegrationTest {
                         tuple(LocalDate.of(2026, 2, 1), "Income", new BigDecimal("1850.00")));
 
         Integer snapshots = jdbc.queryForObject("SELECT count(*) FROM balance_snapshot WHERE user_id = ?", Integer.class, user.getId());
-        Integer audits = jdbc.queryForObject("SELECT count(*) FROM audit_event WHERE user_id = ? AND type = 'NESSIE_SYNCED'", Integer.class, user.getId());
         assertThat(snapshots).isEqualTo(2);
-        assertThat(audits).isEqualTo(2);
         assertThat(store.latestBalance("acct-1")).get().extracting(b -> b.balance()).isEqualTo(new BigDecimal("300.00"));
+
+        // Kafka chain: transactions.ingested -> cashflow.changed -> forecast_snapshot + forecast.updated, all audited.
+        UUID userId = user.getId();
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+            assertThat(eventCount(userId, Topics.TRANSACTIONS_INGESTED)).isEqualTo(1);
+            assertThat(eventCount(userId, Topics.CASHFLOW_CHANGED)).isEqualTo(1);
+            assertThat(eventCount(userId, Topics.FORECAST_UPDATED)).isEqualTo(1);
+            assertThat(forecastSnapshots(userId)).isEqualTo(1);
+        });
+        assertThat(jdbc.queryForObject("""
+                SELECT count(DISTINCT payload->>'correlationId') FROM audit_event
+                WHERE user_id = ? AND type IN ('transactions.ingested', 'cashflow.changed', 'forecast.updated')
+                """, Integer.class, userId)).isEqualTo(1);
 
         // Nessie's balance never moves; newly posted transactions are added to the last snapshot.
         when(nessie.listDeposits("acct-1")).thenReturn(List.of(
@@ -108,6 +118,32 @@ class NessieSyncIntegrationTest {
         assertThat(sync.sync(user).inserted()).isEqualTo(2);
         assertThat(store.latestBalance("acct-1")).get().extracting(b -> b.balance()).isEqualTo(new BigDecimal("680.00"));
         verify(nessie, times(1)).getAccount("acct-1");
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+            assertThat(eventCount(userId, Topics.FORECAST_UPDATED)).isEqualTo(2);
+            assertThat(forecastSnapshots(userId)).isEqualTo(2);
+        });
+    }
+
+    @Test
+    void idempotencyGuardRunsOncePerEventAndRollsBackMarkerOnFailure() {
+        UUID eventId = UUID.randomUUID();
+        AtomicInteger calls = new AtomicInteger();
+
+        assertThatThrownBy(() -> guard.once("test", eventId, () -> {
+            calls.incrementAndGet();
+            throw new IllegalStateException("boom");
+        })).isInstanceOf(IllegalStateException.class);
+        assertThat(guard.once("test", eventId, calls::incrementAndGet)).contains(2);
+        assertThat(guard.once("test", eventId, calls::incrementAndGet)).isEmpty();
+        assertThat(guard.once("other-consumer", eventId, calls::incrementAndGet)).contains(3);
+    }
+
+    private int eventCount(UUID userId, String type) {
+        return jdbc.queryForObject("SELECT count(*) FROM audit_event WHERE user_id = ? AND type = ?", Integer.class, userId, type);
+    }
+
+    private int forecastSnapshots(UUID userId) {
+        return jdbc.queryForObject("SELECT count(*) FROM forecast_snapshot WHERE user_id = ?", Integer.class, userId);
     }
 
     @Test

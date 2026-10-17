@@ -12,6 +12,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import com.shbean.events.EventPublisher;
+import com.shbean.events.Events.CashflowChanged;
+import com.shbean.events.Events.CashflowReason;
+import com.shbean.events.Topics;
 import com.shbean.nessie.NessieClient;
 import com.shbean.nessie.NessieException;
 import com.shbean.nessie.NessieModels.BillRequest;
@@ -30,10 +34,12 @@ public class RecurringExpenseService {
 
     private final RecurringExpenseRepository repo;
     private final NessieClient nessie;
+    private final EventPublisher events;
 
-    public RecurringExpenseService(RecurringExpenseRepository repo, NessieClient nessie) {
+    public RecurringExpenseService(RecurringExpenseRepository repo, NessieClient nessie, EventPublisher events) {
         this.repo = repo;
         this.nessie = nessie;
+        this.events = events;
     }
 
     public List<RecurringExpense> list(UUID userId) {
@@ -50,7 +56,9 @@ public class RecurringExpenseService {
                 log.warn("Could not mirror recurring expense {} to Nessie: {}", expense.getId(), e.getMessage());
             }
         }
-        return repo.save(expense);
+        RecurringExpense saved = repo.save(expense);
+        changed(user.getId());
+        return saved;
     }
 
     public Optional<RecurringExpense> update(UUID userId, UUID id, Input input) {
@@ -63,7 +71,9 @@ public class RecurringExpenseService {
                     log.warn("Could not update Nessie bill for recurring expense {}: {}", id, e.getMessage());
                 }
             }
-            return repo.save(expense);
+            RecurringExpense saved = repo.save(expense);
+            changed(userId);
+            return saved;
         });
     }
 
@@ -77,8 +87,13 @@ public class RecurringExpenseService {
                 }
             }
             repo.delete(expense);
+            changed(userId);
             return true;
         }).orElse(false);
+    }
+
+    private void changed(UUID userId) {
+        events.publish(Topics.CASHFLOW_CHANGED, userId, new CashflowChanged(CashflowReason.RECURRING_EXPENSE));
     }
 
     private static void apply(RecurringExpense expense, Input in) {

@@ -20,6 +20,14 @@ spring:
     baseline-version: 0
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      acks: all
+      properties:
+        # Bound how long a send can block when Kafka is down (publishing is best-effort).
+        max.block.ms: 5000
+        enable.idempotence: true
+    consumer:
+      auto-offset-reset: earliest
   ai:
     model:
       # Set AI_CHAT_MODEL=none to run without Gemini (deterministic fallbacks are used).

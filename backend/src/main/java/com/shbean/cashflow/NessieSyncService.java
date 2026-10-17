@@ -17,6 +17,9 @@ import org.springframework.stereotype.Service;
 
 import com.shbean.ai.MerchantCategorizer;
 import com.shbean.cashflow.TransactionStore.TransactionRow;
+import com.shbean.events.EventPublisher;
+import com.shbean.events.Events.TransactionsIngested;
+import com.shbean.events.Topics;
 import com.shbean.nessie.NessieClient;
 import com.shbean.nessie.NessieException;
 import com.shbean.nessie.NessieModels.Merchant;
@@ -43,14 +46,16 @@ public class NessieSyncService {
     private final TransactionStore store;
     private final AppUserRepository users;
     private final MerchantCategorizer categorizer;
+    private final EventPublisher events;
     private final Map<String, String> merchantCategories = new ConcurrentHashMap<>();
 
     public NessieSyncService(NessieClient nessie, TransactionStore store, AppUserRepository users,
-                             MerchantCategorizer categorizer) {
+                             MerchantCategorizer categorizer, EventPublisher events) {
         this.nessie = nessie;
         this.store = store;
         this.users = users;
         this.categorizer = categorizer;
+        this.events = events;
     }
 
     public void syncAll() {
@@ -92,8 +97,10 @@ public class NessieSyncService {
         store.insertBalanceSnapshot(accountId, Instant.now(), user.getId(), balance);
         if (!inserted.isEmpty()) {
             refreshAggregate(inserted);
+            LocalDate first = inserted.stream().map(r -> r.occurredAt().atOffset(ZoneOffset.UTC).toLocalDate()).min(Comparator.naturalOrder()).orElseThrow();
+            LocalDate last = inserted.stream().map(r -> r.occurredAt().atOffset(ZoneOffset.UTC).toLocalDate()).max(Comparator.naturalOrder()).orElseThrow();
+            events.publish(Topics.TRANSACTIONS_INGESTED, user.getId(), new TransactionsIngested(inserted.size(), first, last, balance));
         }
-        store.audit(user.getId(), "NESSIE_SYNCED", "{\"fetched\":%d,\"inserted\":%d}".formatted(rows.size(), inserted.size()));
         log.info("Nessie sync for user {}: fetched {}, inserted {}", user.getId(), rows.size(), inserted.size());
         return new SyncResult(rows.size(), inserted.size());
     }

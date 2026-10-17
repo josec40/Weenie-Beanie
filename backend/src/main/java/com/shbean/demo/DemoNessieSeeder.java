@@ -23,6 +23,10 @@ import org.springframework.stereotype.Component;
 import com.shbean.cashflow.NessieSyncService;
 import com.shbean.demo.DemoScenario.MerchantSpec;
 import com.shbean.demo.DemoScenario.PlannedTxn;
+import com.shbean.events.EventPublisher;
+import com.shbean.events.Events.CashflowChanged;
+import com.shbean.events.Events.CashflowReason;
+import com.shbean.events.Topics;
 import com.shbean.nessie.NessieClient;
 import com.shbean.nessie.NessieModels.Account;
 import com.shbean.nessie.NessieModels.Address;
@@ -52,12 +56,15 @@ public class DemoNessieSeeder implements ApplicationRunner {
     private final AppUserRepository users;
     private final NessieSyncService sync;
     private final DemoProperties demo;
+    private final EventPublisher events;
 
-    public DemoNessieSeeder(NessieClient nessie, AppUserRepository users, NessieSyncService sync, DemoProperties demo) {
+    public DemoNessieSeeder(NessieClient nessie, AppUserRepository users, NessieSyncService sync, DemoProperties demo,
+                            EventPublisher events) {
         this.nessie = nessie;
         this.users = users;
         this.sync = sync;
         this.demo = demo;
+        this.events = events;
     }
 
     @Override
@@ -73,7 +80,10 @@ public class DemoNessieSeeder implements ApplicationRunner {
             if (user.getNessieCheckingAccountId() == null) {
                 seed(user);
             }
-            sync.sync(user);
+            if (sync.sync(user).inserted() == 0) {
+                // Nothing new to ingest, but still refresh the forecast snapshot (the month may have rolled over).
+                events.publish(Topics.CASHFLOW_CHANGED, user.getId(), new CashflowChanged(CashflowReason.TRANSACTIONS));
+            }
         } catch (RuntimeException e) {
             log.warn("Demo Nessie seeding/sync failed: {}", e.getMessage());
         }

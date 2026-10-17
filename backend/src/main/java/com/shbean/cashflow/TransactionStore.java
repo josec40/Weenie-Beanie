@@ -137,9 +137,4 @@ public class TransactionStore {
                         rs.getLong("txn_count")),
                 userId);
     }
-
-    public void audit(UUID userId, String type, String payloadJson) {
-        jdbc.update("INSERT INTO audit_event (id, occurred_at, user_id, type, payload) VALUES (?, now(), ?, ?, ?::jsonb)",
-                UUID.randomUUID(), userId, type, payloadJson);
-    }
 }
