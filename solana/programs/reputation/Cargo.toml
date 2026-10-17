@@ -1,7 +1,9 @@
 [package]
 name = "reputation"
 version = "0.1.0"
-edition = "2021"
+description = "ShBean reputation program"
+edition.workspace = true
+rust-version.workspace = true
 
 [lib]
 crate-type = ["cdylib", "lib"]
@@ -11,9 +13,22 @@ name = "reputation"
 default = []
 cpi = ["no-entrypoint"]
 no-entrypoint = []
-no-idl = []
 no-log-ix-name = []
-idl-build = ["anchor-lang/idl-build"]
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+anchor-debug = []
+custom-heap = []
+custom-panic = []
 
 [dependencies]
-anchor-lang = "0.31.1"
+anchor-lang = { workspace = true }
+anchor-spl = { workspace = true }
+
+[dev-dependencies]
+litesvm = { workspace = true }
+solana-message = { workspace = true }
+solana-transaction = { workspace = true }
+solana-signer = { workspace = true }
+solana-keypair = { workspace = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

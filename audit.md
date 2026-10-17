@@ -29,7 +29,7 @@ A hackathon MVP for a banking institution that shifts lending from **reactive** 
 | Core banking | **Capital One Nessie API** | Source of truth for fiat accounts, balances, transactions |
 | AI | **Google GenAI (Gemini)** via Spring AI | Parsing + explanations only, never credit decisions |
 | Frontend | React + Vite + TypeScript + Apollo Client | react-router; Recharts planned for forecast chart |
-| Blockchain | Solana devnet, Rust/Anchor 0.31.x programs | Java backend calls Solana via solanaj/sava client |
+| Blockchain | Solana devnet, Rust/**Anchor 1.2.1** programs (SBPF v2) | Java backend calls Solana via its own `AnchorCodec` + an RPC client chosen in Phase 7 |
 | Local infra | Docker Compose | Kafka (KRaft) + Kafka UI only; DB is Tiger Cloud |
 
 ---
@@ -99,7 +99,7 @@ Real KYC, real fiat on/off-ramps, mainnet, zero-knowledge proofs, partner-bank i
 - Compose: Kafka KRaft + Kafka UI.
 - Backend: Spring Boot, secrets from env/`.env`, Flyway V1 `app_user`, JWT HS256 + `POST /auth/login`, dev-profile demo user seeder, GraphQL `me`, `NessieClient` (customers, accounts), `smoke` profile runner.
 - Frontend: Vite React TS, Apollo with auth link, Login + Me pages, Vite proxy.
-- Solana: Anchor workspace with stub programs.
+- Solana: Anchor workspace with stub programs (replaced by real programs in Phase 6).
 
 **Phase 1 — Nessie ingestion + time-series**
 - Hypertables: `account_transaction` (PK `(id, occurred_at)`), `balance_snapshot`, `audit_event`. Regular tables: `recurring_expense`, `loan`, `loan_offer`, `wallet`, `credential`, `forecast_snapshot`.
@@ -138,6 +138,13 @@ Real KYC, real fiat on/off-ramps, mainnet, zero-knowledge proofs, partner-bank i
 - `microloan`: `init_pool`, `create_loan`, `disburse`, `repay`, `mark_default`.
 - `reputation`: `init_reputation`, `record_repayment`, `record_default` (bank-authority only).
 - Token-2022 NonTransferable + metadata SBT.
+- **Toolchain (2026-10-17):** Anchor CLI/crates **1.2.1** (user chose to upgrade from 0.31.1), Agave/Solana CLI 4.3.1, platform-tools v1.58, Rust 1.89 (`solana/rust-toolchain.toml`). Build with **`anchor build --arch v2`**: Anchor 1.2 defaults to SBPF v3, but the LiteSVM release compatible with Anchor 1.2.1's Solana 3.x crates (0.10) only runs SBPF ≤ v2 (LiteSVM ≥ 0.13.1 is needed for v3, and 0.14 pulls Agave 4.3 crates that conflict). SBPF v2 deployment is active on devnet. On this Mac, set `SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk` (the CLT linker cannot read the macOS 27 SDK: `tapi error: malformed file`).
+- **Program IDs:** `microloan` = `7RPbrV9Ft664iLK95bYsZbNascy9wwX57Tk6UCAM4uXk`, `reputation` = `HicA6FJxaS4DTqZL5reqxHmYcXyEKBsPkJnguMUPVnsh` (keypairs in git-ignored `solana/target/deploy/` — back them up; losing them means losing upgrade ability).
+- **`microloan` design:** `Pool` PDA `["pool", mint]` + vault token PDA `["vault", pool]` (authority = pool). `init_pool` only by the **stablecoin's mint authority** (prevents squatting the deterministic pool PDA). `Loan` PDA `["loan", pool, loan_ref(16-byte backend UUID)]`. `create_loan` is signed by bank **and** borrower; it CPIs SPL `approve` delegating exactly principal + fee to the loan PDA (on-chain auto-repay consent, decision 6). `disburse` (pool PDA signs vault → borrower), `repay` (loan PDA as delegate pulls borrower → vault; borrower does not sign), `mark_default`. Fee ≤ 20% of principal; months are YYYYMM, repay > disburse; timing enforced off-chain (decision 7). Token-interface (works with SPL Token or Token-2022 mints). Events: `LoanCreated/Disbursed/Repaid/Defaulted`.
+- **`reputation` design:** `Config` PDA `["config", authority]` (per-bank namespace, no global squatting); `Reputation` PDA `["reputation", config, wallet]` with on-time/late/default counters, `total_repaid`, `tier`, `sbt_mint`. Tier = effective on-time (on_time − 2·defaults) ≥ 5 → 2, ≥ 2 → 1, else 0 (late repayments don't count). `mint_credential(uri)` (requires ≥ 1 on-time, once): creates Token-2022 mint PDA `["sbt", reputation]` with **NonTransferable + MetadataPointer(self)**, TokenMetadata ("ShBean Repayment Credential" / `SHBREP` / uri, update authority = config PDA), mints 1 to the wallet's Token-2022 ATA, then **removes the mint authority** (supply fixed at 1). Anchor 1.2.1 has no `extensions::non_transferable` constraint, so the mint is created/initialized manually.
+- **Tests (LiteSVM, `cargo test` in `solana/`):** 7/7 — full loan lifecycle with delegated auto-repay; only mint authority can open the pool; fee/months validation, missing borrower signature, wrong authority, double-disburse, repay-before-disburse, default-then-repay; SBT minted once with correct extensions/metadata/supply and **transfer rejected by Token-2022** ("Transfer is disabled for this mint"); tier progression; another authority cannot write a reputation. Both programs pass the Solana MCP `program_autofixer` with zero issues.
+- **Java → Anchor PoC:** `backend/.../solana/AnchorCodec` (discriminators, Borsh args for `create_loan`/`record_repayment`/`mint_credential`, `Loan` account decoder). Golden vector pinned in both Rust (`create_loan_instruction_data_matches_java_golden_vector`) and Java (`AnchorCodecTest`) — byte-identical. RPC transport is deferred to Phase 7.
+- **Devnet:** `solana/scripts/devnet-deploy.sh` (build, `anchor deploy`, creates bank keypair `~/.config/solana/shbean-bank.json`, mock USDC mint with 6 decimals / mint authority = bank, writes non-secret `solana/devnet.env`). **Not yet run** — deployer `7dxFAVCQu27cv4ouLaGM8kNQiYrWQKXQcbAmVgWoscFP` needs ≥ 4 devnet SOL; CLI airdrops are rate-limited.
 
 **Phase 7 — Settlement**
 - `SolanaClient` (Anchor 8-byte discriminator + Borsh encoding), `WalletService`, `DisbursementSaga`, `RepaymentSaga`.
@@ -234,7 +241,8 @@ Spring profiles: `dev` (GraphiQL, demo user seeding, Nessie "Alex" scenario seed
 | 3 AI layer (Gemini) | **Done & verified live** (explanation 1.5 s uncached / 0.3 s cached; NL drafts correct incl. "3 more years" → 36, "starting January" → 2027-01) |
 | 4 Kafka backbone | **Done & verified** (Testcontainers Kafka chain test + dev: topics/groups created, startup chain produced forecast snapshot + audited events) |
 | 5 Offer engine + loan lifecycle | **Done & verified** (unit + Kafka lifecycle integration tests; dev: V6 applied, demo user correctly gets `EXCEEDS_TIER_CAP` at Tier 0). `advanceMonth` not yet exercised against live Nessie |
-| 6 – 9 | Not started |
+| 6 Solana programs | **Built & tested locally** (7/7 LiteSVM, autofixer clean, Java codec golden vector). **Devnet deploy pending** (deployer needs devnet SOL) |
+| 7 – 9 | Not started |
 
 ### Phase 0 verification checklist
 - [x] User: `tiger auth login`, create service, `tiger mcp install`; fill `.env`
@@ -244,7 +252,7 @@ Spring profiles: `dev` (GraphiQL, demo user seeding, Nessie "Alex" scenario seed
 - [x] `mvn spring-boot:run -Dspring-boot.run.profiles=dev` → Flyway V1 applied on Tiger, demo user seeded
 - [x] `mvn spring-boot:run -Dspring-boot.run.profiles=smoke` → Nessie customer + account created and read back; key not in logs
 - [ ] `cd frontend && npm install && npm run dev` → login at http://localhost:5173, Me page shows email
-- [ ] `cd solana && anchor build && anchor keys sync` → real program IDs replace placeholders
+- [x] `cd solana && anchor build --arch v2 && anchor keys sync` → real program IDs replace placeholders
 
 ---
 
@@ -264,6 +272,7 @@ Spring profiles: `dev` (GraphiQL, demo user seeding, Nessie "Alex" scenario seed
 | 2026-10-17 | **Phase 3 done.** Spring AI **1.1.8** BOM + `spring-ai-starter-model-google-genai` (1.1.x is the Boot 3.5 line; 2.x needs Boot 4). V4: `ai_explanation`, `merchant_category` cache tables. New `ai` package: `AiGateway`, `Categories`, `AiCache`, `ExpenseParser`, `MerchantCategorizer`, `ExplanationService`, `AiController`. GraphQL: `Forecast.explanation { text source }`, `draftRecurringExpenses(text)` mutation, `categories` query, `AiSource` enum. `NessieSyncService` now categorizes merchants via `MerchantCategorizer` (Uncategorized results are not memoized, so they retry). `ExplanationService.explainOffer(OfferFacts)` is ready for Phase 5. Frontend: AI summary card, "Describe your recurring expenses" assistant with Add/Discard per draft, category dropdown. Tests: 31/31 green (unit tests mock `AiGateway`; integration tests run with `spring.ai.model.chat=none`). |
 | 2026-10-17 | **Phase 4 done.** V5 `processed_event`. New `events` package (`EventEnvelope`, `Topics`, `Events`, `EventPublisher`, `IdempotencyGuard`, `AuditConsumer`, `DeadLetters`), `cashflow.CashflowEventsConsumer`, `forecast.ForecastEventsConsumer` + `ForecastSnapshotStore`. Removed the direct `NESSIE_SYNCED` audit write (audit trail is now event-driven). Kafka producer `acks=all`, idempotent, `max.block.ms=5000`; consumers `auto-offset-reset=earliest`. Tests: shared `TestInfra` (TimescaleDB + `apache/kafka:3.9.1` via `@ServiceConnection`), new chain/correlation and idempotency-rollback tests; 32/32 green. Dev on Tiger: V5 applied; topics + `.retry`/`.dlt` created; groups `shbean-audit`, `shbean-cashflow`, `shbean-forecast` (+ retry/dlt); startup produced `cashflow.changed` → snapshot → `forecast.updated`, both audited. |
 | 2026-10-17 | **Phase 5 done.** V6: `demo_clock` (offset + scenario anchor), `loan_offer` (+deficit, projected_surplus, tier, decided_at, one-open-offer index), `loan` (+grace_until_month, reschedule_count, repaid_at, last_failure, one-open-loan index). New `loan` package: `LoanProperties`, `OfferEngine`, `LoanOffer`/`Loan` (JPA), repositories, `CreditTiers` (reads `credential.tier`, default 0), `OfferService` + `OfferEventsConsumer` (`forecast.updated` → `offer.generated`; AI explanation generated outside the DB transaction; unchanged terms keep the existing offer, otherwise SUPERSEDED/EXPIRED), `LoanService`, `LoanSettlementConsumer`, `LoanController`. New `demo`: `DemoClock`, `DemoPoster` (shared with seeder; looks up merchants via new `NessieClient.listMerchants`), `DemoService` (advanceMonth); `DemoScenario.simulatedMonth`. `ForecastEngine` gained `OneOff` flows + `Source.LOAN`; `ForecastService`/`AiController` use `DemoClock`. GraphQL: `currentOffer`, `loans`, `creditProfile`, `demoClock`, `acceptOffer(offerId, consent)`, `declineOffer`, `rescheduleLoan`, `repayLoanEarly`, `advanceMonth`. Frontend: `components/LoansPanel.tsx` (offer card with consent checkbox, loan table with reschedule/repay-now, credit tier line, demo clock + "Advance one month"; polls every 3 s). Tests: 44/44 green (new `OfferEngineTest`, `LoanTest`, `LoanLifecycleIntegrationTest` incl. LATE → DEFAULTED). |
+| 2026-10-17 | **Phase 6 (local) done.** Installed toolchain via the official Solana installer + Homebrew `libusb` + AVM (Anchor 1.2.1). Workspace migrated 0.31.1 → 1.2.1 (workspace deps, `rust-toolchain.toml`, `[scripts] test = "cargo test"`). New `microloan` and `reputation` programs (state/error modules, events), LiteSVM tests, `scripts/devnet-deploy.sh`, `Cargo.lock` committed. Program IDs synced. Backend: `solana.AnchorCodec` + `AnchorCodecTest`. Devnet deploy blocked on faucet funding. |
 
 ---
 
@@ -286,9 +295,12 @@ Spring profiles: `dev` (GraphiQL, demo user seeding, Nessie "Alex" scenario seed
 - `advanceMonth` simulates only the demo persona's transactions; user-entered recurring expenses (Nessie bills) are not auto-paid by Nessie, so they affect the forecast but not the simulated balance. Months between the scenario anchor and the real current month are never simulated if the real calendar moves on.
 - `advanceMonth` is global (moves the clock for all users) and is exposed to any authenticated user when `app.demo.clock-enabled=true` (dev profile only). Reset with `UPDATE demo_clock SET month_offset = 0` (Nessie transactions already posted stay).
 - Nessie endpoint shapes are based on the standard Nessie API (`/customers`, `/customers/{id}/accounts`, `/accounts/{id}`, `?key=`); verify with the smoke profile.
-- Anchor programs share a placeholder program ID until `anchor keys sync`.
-- Dependency versions were pinned without network verification (Spring Boot 3.5.6, Anchor 0.31.1, Vite 6, React 19, Apollo Client 3.13); bump if newer stable versions are desired.
-- Choose solanaj vs sava for the Java Solana client (PoC planned in Phase 6).
+- Program IDs are real (see Phase 6); program keypairs live only in git-ignored `solana/target/deploy/` — back them up before `cargo clean`/`anchor clean`.
+- Dependency versions were pinned without network verification (Spring Boot 3.5.6, Vite 6, React 19, Apollo Client 3.13); bump if newer stable versions are desired. Solana side is verified: Anchor 1.2.1, LiteSVM 0.10, SBPF v2.
+- **Java Solana client still open (Phase 7):** Sava targets **Java 25** and is published only on GitHub Packages (needs a GitHub token in Maven settings); solanaj is older/less maintained. `AnchorCodec` keeps the encoding library-independent either way.
+- Devnet deployment pending: fund deployer `7dxFAVCQu27cv4ouLaGM8kNQiYrWQKXQcbAmVgWoscFP` with ≥ 4 SOL at https://faucet.solana.com, then run `solana/scripts/devnet-deploy.sh`.
+- The Solana quick installer also installed a "solana-dev" agent skill for several AI coding tools (it reported "they run with full agent permissions"); review or remove it if unwanted.
+- Upgrading to SBPF v3 later requires LiteSVM ≥ 0.13.1 compatible with the Anchor version in use (or Surfpool/validator-based tests).
 - Nessie rate limits / shared sandbox: sync on demand, cache, use WireMock recordings in CI.
 - The original workspace folder `sh_planning` was removed; the project lives in `sh_bean`.
 

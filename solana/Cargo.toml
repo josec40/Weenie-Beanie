@@ -2,6 +2,20 @@
 members = ["programs/*"]
 resolver = "2"
 
+[workspace.package]
+edition = "2021"
+rust-version = "1.89.0"
+
+[workspace.dependencies]
+anchor-lang = { version = "1.2.1", features = ["init-if-needed"] }
+anchor-spl = "1.2.1"
+# Test-only: LiteSVM 0.10 matches Anchor 1.2.1's Solana 3.x crates; it runs SBPF <= v2, hence `anchor build --arch v2`.
+litesvm = "0.10.0"
+solana-message = "3.0.1"
+solana-transaction = "3.0.2"
+solana-signer = "3.0.0"
+solana-keypair = "3.0.1"
+
 [profile.release]
 overflow-checks = true
 lto = "fat"
