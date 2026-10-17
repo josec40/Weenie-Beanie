@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: sh-bean
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}
+    ttl: 1h
+  demo:
+    email: ${DEMO_USER_EMAIL:alex@demo.local}
+    password: ${DEMO_USER_PASSWORD:}
+
+nessie:
+  base-url: ${NESSIE_BASE_URL:http://api.nessieisreal.com}
+  api-key: ${NESSIE_API_KEY}

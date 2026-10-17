@@ -1,0 +1,14 @@
+.env
+.DS_Store
+.idea/
+
+backend/target/
+
+frontend/node_modules/
+frontend/dist/
+
+solana/target/
+solana/node_modules/
+solana/test-ledger/
+solana/.anchor/
+**/*-keypair.json
