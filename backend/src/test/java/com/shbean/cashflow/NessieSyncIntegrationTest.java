@@ -39,6 +39,7 @@ import com.shbean.user.AppUserRepository;
         "app.jwt.secret=test-secret-that-is-at-least-32-bytes-long!!",
         "nessie.api-key=test",
         "nessie.base-url=http://localhost:1",
+        "spring.ai.model.chat=none",
         "nessie.sync.enabled=false"
 })
 class NessieSyncIntegrationTest {

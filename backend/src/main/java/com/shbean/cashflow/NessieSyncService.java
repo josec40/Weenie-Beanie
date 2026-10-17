@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import com.shbean.ai.MerchantCategorizer;
 import com.shbean.cashflow.TransactionStore.TransactionRow;
 import com.shbean.nessie.NessieClient;
 import com.shbean.nessie.NessieException;
@@ -41,12 +42,15 @@ public class NessieSyncService {
     private final NessieClient nessie;
     private final TransactionStore store;
     private final AppUserRepository users;
+    private final MerchantCategorizer categorizer;
     private final Map<String, String> merchantCategories = new ConcurrentHashMap<>();
 
-    public NessieSyncService(NessieClient nessie, TransactionStore store, AppUserRepository users) {
+    public NessieSyncService(NessieClient nessie, TransactionStore store, AppUserRepository users,
+                             MerchantCategorizer categorizer) {
         this.nessie = nessie;
         this.store = store;
         this.users = users;
+        this.categorizer = categorizer;
     }
 
     public void syncAll() {
@@ -120,9 +124,11 @@ public class NessieSyncService {
         }
         try {
             Merchant m = nessie.getMerchant(merchantId);
-            String category = m == null || m.category() == null || m.category().isEmpty()
-                    ? UNCATEGORIZED : m.category().getFirst();
-            merchantCategories.put(merchantId, category);
+            String nessieCategory = m == null || m.category() == null || m.category().isEmpty() ? null : m.category().getFirst();
+            String category = categorizer.categorize(m == null ? null : m.name(), nessieCategory);
+            if (!UNCATEGORIZED.equals(category)) {
+                merchantCategories.put(merchantId, category);
+            }
             return category;
         } catch (NessieException e) {
             return UNCATEGORIZED;

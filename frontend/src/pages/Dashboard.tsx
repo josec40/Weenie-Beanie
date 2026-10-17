@@ -14,6 +14,10 @@ const DASHBOARD = gql`
       startingBalance
       balanceAsOf
       discretionaryMonthly
+      explanation {
+        text
+        source
+      }
       months {
         month
         income
@@ -39,6 +43,7 @@ const DASHBOARD = gql`
       durationMonths
       endMonth
     }
+    categories
   }
 `;
 
@@ -64,6 +69,30 @@ const DELETE_EXPENSE = gql`
     deleteRecurringExpense(id: $id)
   }
 `;
+
+const DRAFT_EXPENSES = gql`
+  mutation DraftExpenses($text: String!) {
+    draftRecurringExpenses(text: $text) {
+      name
+      amount
+      category
+      dayOfMonth
+      startMonth
+      durationMonths
+      source
+    }
+  }
+`;
+
+type ExpenseDraft = {
+  name: string;
+  amount: number;
+  category: string;
+  dayOfMonth: number;
+  startMonth: string;
+  durationMonths: number | null;
+  source: string;
+};
 
 type Line = { label: string; category: string; amount: number; source: string };
 type ForecastMonth = {
@@ -92,9 +121,11 @@ type DashboardData = {
     startingBalance: number;
     balanceAsOf: string | null;
     discretionaryMonthly: number;
+    explanation: { text: string; source: string };
     months: ForecastMonth[];
   } | null;
   recurringExpenses: RecurringExpense[];
+  categories: string[];
 };
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
@@ -188,6 +219,11 @@ export default function Dashboard() {
               <strong>{usd.format(forecast.discretionaryMonthly)}</strong>
               <span className="muted small">per month (median)</span>
             </div>
+          </div>
+
+          <div className="explanation">
+            <span className="badge">{forecast.explanation.source === 'AI' ? 'AI summary' : 'Summary'}</span>
+            <p>{forecast.explanation.text}</p>
           </div>
 
           <h2>Projected end-of-month balance</h2>
@@ -295,7 +331,15 @@ export default function Dashboard() {
             </tbody>
           </table>
         )}
+        <DraftAssistant
+          onConfirm={async (draft) => {
+            const { source: _source, ...input } = draft;
+            await createExpense({ variables: { input } });
+            await refetch();
+          }}
+        />
         <ExpenseForm
+          categories={data.categories}
           defaultStart={forecast ? nextMonth(forecast.currentMonth) : ''}
           submitting={createState.loading}
           error={createState.error?.message ?? null}
@@ -309,6 +353,79 @@ export default function Dashboard() {
   );
 }
 
+function DraftAssistant({ onConfirm }: { onConfirm: (draft: ExpenseDraft) => Promise<void> }) {
+  const [text, setText] = useState('');
+  const [drafts, setDrafts] = useState<ExpenseDraft[]>([]);
+  const [draft, draftState] = useMutation<{ draftRecurringExpenses: ExpenseDraft[] }>(DRAFT_EXPENSES);
+  const [busy, setBusy] = useState<number | null>(null);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    try {
+      const result = await draft({ variables: { text } });
+      setDrafts(result.data?.draftRecurringExpenses ?? []);
+    } catch {
+      // Error is surfaced via the mutation state.
+    }
+  }
+
+  async function confirm(i: number) {
+    setBusy(i);
+    try {
+      await onConfirm(drafts[i]);
+      setDrafts((d) => d.filter((_, j) => j !== i));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="assistant">
+      <form onSubmit={submit}>
+        <label>
+          Describe your recurring expenses
+          <textarea
+            rows={2}
+            maxLength={500}
+            placeholder="e.g. Netflix 15.49 for 12 months, car payment $385 on the 5th for 3 years"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            required
+          />
+        </label>
+        <button type="submit" disabled={draftState.loading || !text.trim()}>
+          {draftState.loading ? 'Reading…' : 'Suggest expenses'}
+        </button>
+      </form>
+      {draftState.error && <p className="error">{draftState.error.message}</p>}
+      {draftState.called && !draftState.loading && !draftState.error && drafts.length === 0 && (
+        <p className="muted">No expenses with an amount were found.</p>
+      )}
+      {drafts.length > 0 && (
+        <ul className="drafts">
+          {drafts.map((d, i) => (
+            <li key={`${d.name}-${i}`}>
+              <span>
+                <strong>{d.name}</strong> {usd.format(d.amount)}/mo · {d.category} · from {monthLabel(d.startMonth)}
+                {d.durationMonths ? ` for ${d.durationMonths} months` : ', ongoing'} · day {d.dayOfMonth}{' '}
+                <span className="badge">{d.source === 'AI' ? 'AI' : 'rules'}</span>
+              </span>
+              <span className="actions">
+                <button onClick={() => confirm(i)} disabled={busy !== null}>
+                  {busy === i ? 'Adding…' : 'Add'}
+                </button>
+                <button className="secondary" onClick={() => setDrafts((x) => x.filter((_, j) => j !== i))}>
+                  Discard
+                </button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 type ExpenseInput = {
   name: string;
   amount: number;
@@ -319,11 +436,13 @@ type ExpenseInput = {
 };
 
 function ExpenseForm({
+  categories,
   defaultStart,
   submitting,
   error,
   onSubmit,
 }: {
+  categories: string[];
   defaultStart: string;
   submitting: boolean;
   error: string | null;
@@ -367,7 +486,13 @@ function ExpenseForm({
         onChange={(e) => setAmount(e.target.value)}
         required
       />
-      <input placeholder="Category" value={category} onChange={(e) => setCategory(e.target.value)} required maxLength={64} />
+      <select value={category} onChange={(e) => setCategory(e.target.value)} required>
+        {categories.map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
       <label className="inline">
         Day
         <input type="number" min="1" max="28" value={dayOfMonth} onChange={(e) => setDayOfMonth(e.target.value)} required />

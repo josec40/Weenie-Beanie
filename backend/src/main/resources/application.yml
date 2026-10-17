@@ -20,6 +20,18 @@ spring:
     baseline-version: 0
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+  ai:
+    model:
+      # Set AI_CHAT_MODEL=none to run without Gemini (deterministic fallbacks are used).
+      chat: ${AI_CHAT_MODEL:google-genai}
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY:}
+        chat:
+          options:
+            model: ${GEMINI_MODEL:gemini-2.5-flash}
+            temperature: 0.2
+            thinking-budget: 0
 
 server:
   # 8080 is commonly taken (e.g. local Jenkins); keep in sync with frontend/vite.config.ts.
@@ -38,6 +50,9 @@ app:
   demo:
     email: ${DEMO_USER_EMAIL:alex@demo.local}
     password: ${DEMO_USER_PASSWORD:}
+  ai:
+    timeout: PT15S
+    cooldown: PT60S
 
 nessie:
   base-url: ${NESSIE_BASE_URL:https://api.nessieisreal.com}

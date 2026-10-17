@@ -29,7 +29,8 @@ import com.shbean.user.AppUserRepository;
 @SpringBootTest(properties = {
         "app.jwt.secret=test-secret-that-is-at-least-32-bytes-long!!",
         "nessie.api-key=test",
-        "nessie.base-url=http://localhost:1"
+        "nessie.base-url=http://localhost:1",
+        "spring.ai.model.chat=none"
 })
 @AutoConfigureMockMvc
 class AuthFlowIntegrationTest {

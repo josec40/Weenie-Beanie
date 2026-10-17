@@ -5,6 +5,8 @@ type Query {
     "Posted transactions between two dates (YYYY-MM-DD, inclusive, max 2 years)."
     transactions(from: String!, to: String!): [Transaction!]!
     recurringExpenses: [RecurringExpense!]!
+    "Canonical spending categories."
+    categories: [String!]!
 }
 
 type Mutation {
@@ -14,6 +16,8 @@ type Mutation {
     "Returns null if the expense does not exist or belongs to another user."
     updateRecurringExpense(id: ID!, input: RecurringExpenseInput!): RecurringExpense
     deleteRecurringExpense(id: ID!): Boolean!
+    "Parse free text (max 500 chars) into unsaved drafts; confirm each with createRecurringExpense."
+    draftRecurringExpenses(text: String!): [ExpenseDraft!]!
 }
 
 type SyncResult {
@@ -36,6 +40,30 @@ type Forecast {
     balanceAsOf: String
     discretionaryMonthly: Float!
     months: [ForecastMonth!]!
+    "Plain-language summary (Gemini, cached; deterministic fallback)."
+    explanation: Explanation!
+}
+
+enum AiSource {
+    AI
+    FALLBACK
+    RULES
+}
+
+type Explanation {
+    text: String!
+    source: AiSource!
+}
+
+type ExpenseDraft {
+    name: String!
+    amount: Float!
+    category: String!
+    dayOfMonth: Int!
+    "YYYY-MM"
+    startMonth: String!
+    durationMonths: Int
+    source: AiSource!
 }
 
 type ForecastMonth {

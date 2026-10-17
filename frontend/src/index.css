@@ -190,3 +190,61 @@ button.link {
 .pos {
   color: #1e8449;
 }
+
+.explanation {
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  background: #f0f5fb;
+  border-left: 4px solid #004879;
+  border-radius: 6px;
+}
+
+.explanation p {
+  margin: 0.4rem 0 0;
+  line-height: 1.45;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: #dbe7f3;
+  color: #004879;
+}
+
+.assistant {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+textarea,
+select {
+  padding: 0.6rem;
+  border: 1px solid #ccd;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+.drafts {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.drafts li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed #b8c8da;
+  border-radius: 8px;
+}

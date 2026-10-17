@@ -113,6 +113,7 @@ Real KYC, real fiat on/off-ramps, mainnet, zero-knowledge proofs, partner-bank i
 
 **Phase 3 — AI (Gemini via Spring AI)**
 - Structured output for expense parsing; explanations cached per forecast version; deterministic fallback text.
+- **Implemented (`ai` package):** `AiGateway` (only path to Gemini; 15 s timeout, 60 s cooldown after any failure, prompts never logged, disabled when no `ChatModel` bean). `ExpenseParser` (≤500 chars, redacts e-mails/long digit runs, structured output → sanitized drafts; rule-based fallback; drafts are never saved — user confirms via `createRecurringExpense`). `MerchantCategorizer` (Nessie category if canonical → `merchant_category` cache → keyword rules → Gemini; only canonical answers accepted/cached). `ExplanationService` (forecast + offer; sends only months, amounts, categories and pattern types — no descriptions/names/IDs; cached in `ai_explanation` by SHA-256 of kind+model+facts; template fallback is not cached). Canonical categories live in `ai.Categories`.
 
 **Phase 4 — Kafka**
 - Envelope: `eventId`, `type`, `userId`, `occurredAt`, `payload`, `correlationId`.
@@ -188,6 +189,8 @@ All secrets come from environment variables or a root `.env` (imported by Spring
 | `KAFKA_BOOTSTRAP` | Default `localhost:9092` |
 | `NESSIE_BASE_URL`, `NESSIE_API_KEY` | Nessie API |
 | `GEMINI_API_KEY` | Google GenAI (Phase 3) |
+| `GEMINI_MODEL` | Default `gemini-2.5-flash` (thinking budget 0, temperature 0.2) |
+| `AI_CHAT_MODEL` | Default `google-genai`; set `none` to run without Gemini (fallbacks only; tests do this) |
 | `JWT_SECRET` | ≥ 32 bytes (`openssl rand -base64 48`); app refuses to start otherwise |
 | `DEMO_USER_EMAIL`, `DEMO_USER_PASSWORD` | Seeded in `dev` profile |
 | `SERVER_PORT` | Backend port, default **8090** (8080 is taken by local Jenkins) |
@@ -218,7 +221,8 @@ Spring profiles: `dev` (GraphiQL, demo user seeding, Nessie "Alex" scenario seed
 | 0 Foundations | **Verified** except frontend login check and `anchor build` (Anchor CLI not installed) |
 | 1 Nessie ingestion + time-series | **Done & verified on Tiger** (V2/V3 applied, 364 demo txns seeded + synced, dedupe + CAGG verified) |
 | 2 Forecast engine + dashboard | **Done & verified on Tiger data** (demo forecast: shortfall Feb–Mar 2027 = months +4/+5, surplus Apr 2027 = month +6). Dashboard UI built; visual check pending |
-| 3 – 9 | Not started |
+| 3 AI layer (Gemini) | **Done & verified live** (explanation 1.5 s uncached / 0.3 s cached; NL drafts correct incl. "3 more years" → 36, "starting January" → 2027-01) |
+| 4 – 9 | Not started |
 
 ### Phase 0 verification checklist
 - [x] User: `tiger auth login`, create service, `tiger mcp install`; fill `.env`
@@ -245,6 +249,7 @@ Spring profiles: `dev` (GraphiQL, demo user seeding, Nessie "Alex" scenario seed
 | 2026-10-17 | Backend port moved to **8090** (`SERVER_PORT`, default 8090) because local Jenkins occupies 8080; Vite proxy updated. |
 | 2026-10-17 | **Phase 1 done.** V2 (hypertables `account_transaction`, `balance_snapshot`, `audit_event` + regular tables `recurring_expense`, `forecast_snapshot`, `loan_offer`, `loan`, `wallet`, `credential`), V3 (`monthly_cashflow` CAGG per user/month/category, `WITH NO DATA` + hourly policy, real-time enabled). `NessieClient` gained deposits/withdrawals/purchases/merchants. `cashflow.NessieSyncService` (poll every 15 min + GraphQL `syncTransactions` mutation; JDBC batch insert `ON CONFLICT DO NOTHING`; refreshes CAGG for touched months; balance snapshot + audit event per sync). `demo.DemoScenario` (20 months, deterministic) + `demo.DemoNessieSeeder` (dev profile, 8-way parallel posting, links user only after full seed). Tests: 12/12 green. On Tiger: 364 txns seeded, re-sync inserted 0; CAGG shows insurance months 2025-02/2026-02 (net ≈ −1,100) and bonus months 2025-04/2026-04 (net ≈ +1,400); steady months ≈ +70..+200. |
 | 2026-10-17 | **Phase 2 done.** Effective balance decision implemented: first sync anchors to Nessie's balance; each later sync stores `latest snapshot + sum(newly inserted transactions)` (`TransactionStore.insertNew` returns the inserted rows). New: `forecast.ForecastEngine` / `ForecastService` / `ForecastController`; `cashflow.RecurringExpense` (JPA) + `RecurringExpenseService` (validation, owner-scoped update/delete, mirrored to Nessie bills best-effort) + `CashflowController` (`transactions`, `recurringExpenses`, create/update/delete mutations); `GraphQlValidationErrors` maps `IllegalArgumentException` → BAD_REQUEST. `NessieClient` gained create/update/delete bill (verified live: PUT 202, DELETE 200). Frontend: `pages/Dashboard.tsx` at `/` (Recharts red/green ending-balance bars, month table + line breakdown, recurring-expense list/add/remove, Sync button); profile moved to `/me`. Tests: 20/20 green. Live forecast for demo user: +$152/month steady, Feb 2027 −$342 (shortfall), Mar 2027 −$190 (shortfall), Apr 2027 +$1,352 net. |
+| 2026-10-17 | **Phase 3 done.** Spring AI **1.1.8** BOM + `spring-ai-starter-model-google-genai` (1.1.x is the Boot 3.5 line; 2.x needs Boot 4). V4: `ai_explanation`, `merchant_category` cache tables. New `ai` package: `AiGateway`, `Categories`, `AiCache`, `ExpenseParser`, `MerchantCategorizer`, `ExplanationService`, `AiController`. GraphQL: `Forecast.explanation { text source }`, `draftRecurringExpenses(text)` mutation, `categories` query, `AiSource` enum. `NessieSyncService` now categorizes merchants via `MerchantCategorizer` (Uncategorized results are not memoized, so they retry). `ExplanationService.explainOffer(OfferFacts)` is ready for Phase 5. Frontend: AI summary card, "Describe your recurring expenses" assistant with Add/Discard per draft, category dropdown. Tests: 31/31 green (unit tests mock `AiGateway`; integration tests run with `spring.ai.model.chat=none`). |
 
 ---
 
@@ -259,6 +264,8 @@ Spring profiles: `dev` (GraphiQL, demo user seeding, Nessie "Alex" scenario seed
 - Frontend login + dashboard have not been visually verified yet (Phase 0 checklist / Phase 2).
 - `.env.example` is deleted in the working tree (still in git); restore it so new contributors know which variables to set.
 - Frontend bundle is ~865 kB (Recharts); code-split later if needed.
+- AI explanations are cached forever per facts hash; the cache key includes the model name, so changing `GEMINI_MODEL` regenerates them. No per-user rate limit on `draftRecurringExpenses` yet (input capped at 500 chars, 60 s cooldown after failures).
+- With `AI_CHAT_MODEL=google-genai` and no `GEMINI_API_KEY`, Spring AI may fail at startup; set `AI_CHAT_MODEL=none` in that case.
 - Nessie endpoint shapes are based on the standard Nessie API (`/customers`, `/customers/{id}/accounts`, `/accounts/{id}`, `?key=`); verify with the smoke profile.
 - Anchor programs share a placeholder program ID until `anchor keys sync`.
 - Dependency versions were pinned without network verification (Spring Boot 3.5.6, Anchor 0.31.1, Vite 6, React 19, Apollo Client 3.13); bump if newer stable versions are desired.
