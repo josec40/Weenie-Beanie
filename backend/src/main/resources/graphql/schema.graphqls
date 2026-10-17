@@ -18,6 +18,8 @@ type Query {
     unreadNotifications: Int!
     "Demo tooling state; controls are only enabled for the demo account in dev."
     demoStatus: DemoStatus!
+    "Evaluates affordability of a potential purchase and returns a micro-loan proposal if eligible."
+    purchaseCheck(amount: Float!, label: String): PurchaseCheckResult!
 }
 
 type Subscription {
@@ -79,6 +81,10 @@ type Mutation {
     resetDemo: DemoStatus!
     "Marks the given notifications read; an empty or missing list marks all. Returns how many changed."
     markNotificationsRead(ids: [ID!]): Int!
+    "Accept a micro-loan to fund a purchase. Immediate disbursement and on-chain vendor settlement."
+    acceptPurchaseLoan(amount: Float!, label: String, consent: Boolean!, expectedTotalDue: Float!, merchantId: String): Loan!
+    "Directly purchase from a merchant using available checking account balance."
+    payMerchant(merchantId: String!, amount: Float!, description: String): Boolean!
 }
 
 type LoanOffer {
@@ -92,6 +98,9 @@ type LoanOffer {
     fee: Float!
     projectedSurplus: Float!
     status: String!
+    purpose: String!
+    purchaseLabel: String
+    purchaseAmount: Float
     explanation: String
     createdAt: String!
 }
@@ -125,6 +134,12 @@ type Loan {
     solanaRepaySignature: String
     disburseTxUrl: String
     repayTxUrl: String
+    purpose: String!
+    purchaseLabel: String
+    purchaseAmount: Float
+    payeeMerchantId: String
+    solanaVendorSignature: String
+    vendorTxUrl: String
     createdAt: String!
     updatedAt: String!
 }
@@ -276,3 +291,29 @@ input RecurringExpenseInput {
     startMonth: String!
     durationMonths: Int
 }
+
+enum PurchaseVerdict {
+    AFFORDABLE
+    LOAN_AVAILABLE
+    NOT_ELIGIBLE
+}
+
+type PurchaseCheckResult {
+    verdict: PurchaseVerdict!
+    reason: String
+    balanceNow: Float!
+    gapToday: Float!
+    proposal: PurchaseProposal
+    affordableFrom: String
+    laterShortfallMonth: String
+    months: [ForecastMonth!]!
+    explanation: Explanation
+}
+
+type PurchaseProposal {
+    principal: Float!
+    fee: Float!
+    repaymentMonth: String!
+    totalDue: Float!
+}
+

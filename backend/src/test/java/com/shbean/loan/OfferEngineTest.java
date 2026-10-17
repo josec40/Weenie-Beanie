@@ -76,6 +76,67 @@ class OfferEngineTest {
         assertThat(p.repaymentMonth()).isEqualTo(NOW.plusMonths(4));
     }
 
+    @Test
+    void purchaseAffordableWhenStartingBalanceCoversAndWindowStaysPositive() {
+        // Start 300, purchase 20 -> startAfterPurchase = 280, months stay positive
+        Decision d = OfferEngine.decidePurchase(new BigDecimal("280"), months(280, 100, 100, 100), 1, PROPS);
+        assertThat(d.proposal()).isEmpty();
+        assertThat(d.reason()).isEqualTo(NoOfferReason.NO_SHORTFALL);
+    }
+
+    @Test
+    void purchaseImmediateGapOffersLoan() {
+        // Start 300, purchase 450 -> startAfterPurchase = -150, todayGap = 150
+        // Month 1 (+152) net covers 150 + 7.50 fee = 157.50? No, 152 < 157.50.
+        // Let's test with month 1 net = 200:
+        Decision d = OfferEngine.decidePurchase(new BigDecimal("-150"), months(-150, 200, 150, 150), 1, PROPS);
+        assertThat(d.proposal()).isPresent();
+        Proposal p = d.proposal().get();
+        assertThat(p.principal()).isEqualByComparingTo("150.00");
+        assertThat(p.fee()).isEqualByComparingTo("7.50");
+        assertThat(p.repaymentMonth()).isEqualTo(NOW.plusMonths(1));
+    }
+
+    @Test
+    void purchaseCapExceededReturnsExceedsTierCap() {
+        // Start 300, purchase 900 -> startAfterPurchase = -600, todayGap = 600 > 500 (Tier 1 cap)
+        Decision d = OfferEngine.decidePurchase(new BigDecimal("-600"), months(-600, 1000, 1000, 1000), 1, PROPS);
+        assertThat(d.proposal()).isEmpty();
+        assertThat(d.reason()).isEqualTo(NoOfferReason.EXCEEDS_TIER_CAP);
+    }
+
+    @Test
+    void purchaseNoRepaymentMonthWithinWindow() {
+        // Gap 150, but candidate months only have +10 net
+        Decision d = OfferEngine.decidePurchase(new BigDecimal("-150"), months(-150, 10, 10, 10), 1, PROPS);
+        assertThat(d.proposal()).isEmpty();
+        assertThat(d.reason()).isEqualTo(NoOfferReason.NO_REPAYMENT_MONTH);
+    }
+
+    @Test
+    void purchaseIntermediateDipSizesPrincipalToWorstMonth() {
+        // Today gap = 20 (startAfterPurchase = -20).
+        // Month 1 has net -80 -> ending balance = -100.
+        // Month 2 has net 300 -> ending balance = 200.
+        // Repaying in month 2 must cover the intermediate dip (100), not just today's gap (20).
+        Decision d = OfferEngine.decidePurchase(new BigDecimal("-20"), months(-20, -80, 300, 100), 1, PROPS);
+        assertThat(d.proposal()).isPresent();
+        Proposal p = d.proposal().get();
+        assertThat(p.principal()).isEqualByComparingTo("100.00");
+        assertThat(p.fee()).isEqualByComparingTo("5.00");
+        assertThat(p.repaymentMonth()).isEqualTo(NOW.plusMonths(2));
+    }
+
+    @Test
+    void purchaseFeeRoundingHalfUp() {
+        // Gap 150.30 -> ceil(150.30) = 151.00 -> fee = 151.00 * 0.05 = 7.55
+        Decision d = OfferEngine.decidePurchase(new BigDecimal("-150.30"), months(-151, 300, 100, 100), 1, PROPS);
+        assertThat(d.proposal()).isPresent();
+        Proposal p = d.proposal().get();
+        assertThat(p.principal()).isEqualByComparingTo("151.00");
+        assertThat(p.fee()).isEqualByComparingTo("7.55");
+    }
+
     private static List<Month> months(int start, int... nets) {
         BigDecimal[] values = new BigDecimal[nets.length];
         for (int i = 0; i < nets.length; i++) {

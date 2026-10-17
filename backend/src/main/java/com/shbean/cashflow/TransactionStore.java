@@ -86,7 +86,7 @@ public class TransactionStore {
                         SELECT id, occurred_at, user_id, account_id, kind, amount, category, description, merchant_id, status
                         FROM account_transaction
                         WHERE user_id = ? AND occurred_at >= ? AND occurred_at < ?
-                        ORDER BY occurred_at, id
+                        ORDER BY occurred_at DESC, id DESC
                         """,
                 (rs, i) -> new TransactionRow(
                         rs.getString("id"),

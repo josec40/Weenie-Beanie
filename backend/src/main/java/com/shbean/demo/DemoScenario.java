@@ -45,7 +45,8 @@ public final class DemoScenario {
             new MerchantSpec("cafe", "Bean & Brew Cafe", "Dining"),
             new MerchantSpec("fuel", "QuickFuel", "Transportation"),
             new MerchantSpec("shop", "TargetMart", "Shopping"),
-            new MerchantSpec("insurance", "Shield Auto Insurance", "Insurance"));
+            new MerchantSpec("insurance", "Shield Auto Insurance", "Insurance"),
+            new MerchantSpec("beanmart", "Bean Mart", "Shopping"));
 
     private DemoScenario() {
     }

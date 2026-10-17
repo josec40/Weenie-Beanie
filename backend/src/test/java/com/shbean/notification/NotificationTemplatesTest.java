@@ -40,6 +40,14 @@ class NotificationTemplatesTest {
     }
 
     @Test
+    void loanDisbursedWithPayeeShowsVendorPaid() {
+        LoanEvent purchaseLoan = new LoanEvent(LOAN.loanId(), "ACTIVE", LOAN.principal(), LOAN.fee(), "2027-02", null, "Bean Mart");
+        Message m = NotificationTemplates.loan(Topics.LOAN_DISBURSED, purchaseLoan).orElseThrow();
+        assertThat(m.title()).isEqualTo("Paid Bean Mart ($390.00)");
+        assertThat(m.body()).contains("Your purchase at Bean Mart was paid with a micro-loan");
+    }
+
+    @Test
     void credentialOnlyNotifiesOnGrowthOrTierChange() {
         NotificationTemplates.Caps caps = tier -> new BigDecimal(new int[] {200, 500, 1000}[tier]);
 

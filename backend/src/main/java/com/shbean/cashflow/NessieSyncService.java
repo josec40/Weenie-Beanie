@@ -85,11 +85,15 @@ public class NessieSyncService {
                 rows.add(row(w.id(), w.transactionDate(), user, accountId, "WITHDRAWAL", w.amount().abs().negate(), CASH, w.description(), null, w.status()));
             }
         }
-        for (Purchase p : nessie.listPurchases(accountId)) {
-            if (!cancelled(p.status())) {
-                rows.add(row(p.id(), p.purchaseDate(), user, accountId, "PURCHASE", p.amount().abs().negate(),
-                        categoryOf(p.merchantId()), p.description(), p.merchantId(), p.status()));
+        try {
+            for (Purchase p : nessie.listPurchases(accountId)) {
+                if (!cancelled(p.status())) {
+                    rows.add(row(p.id(), p.purchaseDate(), user, accountId, "PURCHASE", p.amount().abs().negate(),
+                            categoryOf(p.merchantId()), p.description(), p.merchantId(), p.status()));
+                }
             }
+        } catch (RuntimeException e) {
+            log.warn("Nessie listPurchases skipped for account {}: {}", accountId, e.getMessage());
         }
 
         List<TransactionRow> inserted = store.insertNew(rows);

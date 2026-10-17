@@ -10,7 +10,10 @@ import java.util.function.Supplier;
 import org.springframework.stereotype.Component;
 
 import com.shbean.nessie.NessieClient;
+import com.shbean.nessie.NessieModels.CreatePurchaseRequest;
 import com.shbean.nessie.NessieModels.CreateTransferRequest;
+import com.shbean.nessie.NessieModels.Merchant;
+import com.shbean.nessie.NessieModels.Purchase;
 import com.shbean.nessie.NessieModels.Transfer;
 import com.shbean.settlement.SettlementSteps.State;
 import com.shbean.settlement.SettlementSteps.Step;
@@ -22,6 +25,8 @@ import com.shbean.settlement.SettlementSteps.Step;
  */
 @Component
 public class NessieLedger {
+
+    public static final String BEAN_MART_MERCHANT_ID = "477c05c9-63e8-444b-b9cf-06fad9502dda";
 
     private final NessieClient nessie;
     private final SettlementSteps steps;
@@ -41,6 +46,55 @@ public class NessieLedger {
 
     public static String reversalDescription(UUID loanId, int attempt) {
         return "ShBean micro-loan repayment reversal " + loanId + " #" + attempt;
+    }
+
+    public static String purchaseDescription(UUID loanId) {
+        return "ShBean micro-loan purchase " + loanId;
+    }
+
+    public String resolveMerchantId(String merchantId) {
+        if (merchantId != null && merchantId.length() >= 24) {
+            return merchantId;
+        }
+        try {
+            List<Merchant> merchants = nessie.listMerchants();
+            if (merchants != null) {
+                for (Merchant m : merchants) {
+                    if ("Bean Mart".equalsIgnoreCase(m.name()) && m.id() != null && m.id().length() >= 24) {
+                        return m.id();
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            // fallback
+        }
+        return BEAN_MART_MERCHANT_ID;
+    }
+
+    private List<Purchase> safeListPurchases(String accountId) {
+        try {
+            return nessie.listPurchases(accountId);
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    public String purchase(UUID loanId, String step, String accountId, String merchantId, LocalDate date,
+                           BigDecimal amount, String description) {
+        String realMerchantId = resolveMerchantId(merchantId);
+        return recorded(loanId, step)
+                .or(() -> reconcilePurchases(loanId, step, safeListPurchases(accountId), description))
+                .orElseGet(() -> create(loanId, step, () -> nessie.createPurchase(accountId,
+                        new CreatePurchaseRequest(realMerchantId, "balance", date, amount, "completed", description)).id()));
+    }
+
+    private Optional<String> reconcilePurchases(UUID loanId, String step, List<Purchase> purchases, String description) {
+        Optional<String> found = purchases == null ? Optional.empty() : purchases.stream()
+                .filter(p -> description.equals(p.description()))
+                .map(Purchase::id)
+                .findFirst();
+        found.ifPresent(id -> steps.done(loanId, step, null, id));
+        return found;
     }
 
     public String deposit(UUID loanId, String step, String accountId, LocalDate date, BigDecimal amount, String description) {

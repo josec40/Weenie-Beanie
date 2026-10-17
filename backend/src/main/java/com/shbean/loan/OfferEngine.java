@@ -64,4 +64,57 @@ public final class OfferEngine {
         }
         return Decision.none(NoOfferReason.NO_REPAYMENT_MONTH);
     }
+
+    public static Decision decidePurchase(BigDecimal startAfterPurchase, List<Month> months, int tier, LoanProperties props) {
+        BigDecimal todayGap = startAfterPurchase.signum() < 0 ? startAfterPurchase.negate() : BigDecimal.ZERO;
+        int maxJ = Math.min(props.repaymentWindowMonths(), months.size());
+        if (maxJ <= 0) {
+            return Decision.none(NoOfferReason.NO_REPAYMENT_MONTH);
+        }
+
+        boolean hasAnyShortfallInWindow = todayGap.signum() > 0;
+        if (!hasAnyShortfallInWindow) {
+            for (int k = 0; k < maxJ; k++) {
+                if (months.get(k).endingBalance().signum() < 0) {
+                    hasAnyShortfallInWindow = true;
+                    break;
+                }
+            }
+        }
+        if (!hasAnyShortfallInWindow) {
+            return Decision.none(NoOfferReason.NO_SHORTFALL);
+        }
+
+        BigDecimal cap = props.capFor(tier);
+        boolean anyWithinCap = false;
+        YearMonth currentMonth = months.get(0).month().minusMonths(1);
+
+        for (int j = 1; j <= maxJ; j++) {
+            Month candidate = months.get(j - 1);
+            BigDecimal maxDip = BigDecimal.ZERO;
+            for (int k = 0; k < j - 1; k++) {
+                BigDecimal bal = months.get(k).endingBalance();
+                if (bal.signum() < 0) {
+                    maxDip = maxDip.max(bal.negate());
+                }
+            }
+            BigDecimal rawP = todayGap.max(maxDip);
+            BigDecimal p = rawP.setScale(0, RoundingMode.CEILING).setScale(2, RoundingMode.UNNECESSARY);
+
+            if (p.compareTo(cap) <= 0) {
+                anyWithinCap = true;
+                BigDecimal fee = p.multiply(props.feeRate()).setScale(2, RoundingMode.HALF_UP);
+                boolean covers = candidate.net().compareTo(p.add(fee)) >= 0;
+                boolean staysPositive = candidate.endingBalance().subtract(fee).signum() >= 0;
+                if (covers && staysPositive) {
+                    return Decision.offer(new Proposal(currentMonth, rawP, p, fee, candidate.month(), candidate.net(), tier));
+                }
+            }
+        }
+
+        if (!anyWithinCap) {
+            return Decision.none(NoOfferReason.EXCEEDS_TIER_CAP);
+        }
+        return Decision.none(NoOfferReason.NO_REPAYMENT_MONTH);
+    }
 }

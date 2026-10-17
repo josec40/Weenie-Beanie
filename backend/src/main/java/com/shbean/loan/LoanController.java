@@ -89,6 +89,11 @@ public class LoanController {
         return loan.getSolanaRepaySignature() == null ? null : solana.explorerTxUrl(loan.getSolanaRepaySignature());
     }
 
+    @SchemaMapping(typeName = "Loan")
+    public String vendorTxUrl(Loan loan) {
+        return loan.getSolanaVendorSignature() == null ? null : solana.explorerTxUrl(loan.getSolanaVendorSignature());
+    }
+
     @MutationMapping
     public Loan acceptOffer(@Argument UUID offerId, @Argument boolean consent, @AuthenticationPrincipal Jwt jwt) {
         return loans.accept(user(jwt), offerId, consent);

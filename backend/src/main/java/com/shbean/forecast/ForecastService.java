@@ -53,6 +53,10 @@ public class ForecastService {
     }
 
     public Forecast forecast(AppUser user, int horizonMonths) {
+        return forecast(user, horizonMonths, BigDecimal.ZERO);
+    }
+
+    public Forecast forecast(AppUser user, int horizonMonths, BigDecimal oneTimeSpend) {
         YearMonth current = clock.currentMonth();
         int horizon = Math.clamp(horizonMonths, 1, MAX_HORIZON);
 
@@ -68,8 +72,11 @@ public class ForecastService {
         Optional<BalanceSnapshot> balance = Optional.ofNullable(user.getNessieCheckingAccountId())
                 .flatMap(store::latestBalance);
 
+        BigDecimal currentBalance = balance.map(BalanceSnapshot::balance).orElse(BigDecimal.ZERO);
+        BigDecimal startingBalance = oneTimeSpend == null ? currentBalance : currentBalance.subtract(oneTimeSpend);
+
         Result r = ForecastEngine.forecast(new ForecastEngine.Input(current, horizon,
-                balance.map(BalanceSnapshot::balance).orElse(BigDecimal.ZERO), history, monthlyNet, planned,
+                startingBalance, history, monthlyNet, planned,
                 loanFlows(user, current)));
         return new Forecast(r.currentMonth(), r.startingBalance(), balance.map(BalanceSnapshot::capturedAt).orElse(null),
                 r.discretionaryMonthly(), r.months());

@@ -91,6 +91,7 @@ Real KYC, real fiat on/off-ramps, mainnet, zero-knowledge proofs, partner-bank i
 | 7 | Settlement saga (Solana + Nessie) | 5, 6 | Disbursement: on-chain disburse → Nessie deposit; Repayment: safeguard → Nessie withdrawal → on-chain repay; compensation on failure |
 | 8 | Reputation credential | 7 | Update PDA on repay, mint SBT on first repay, tiers feed offer caps, public REST verify, UI card |
 | 9 | Real-time UX + demo polish | 8 | GraphQL subscriptions from Kafka, notifications, demo panel, seeded scenario, demo script |
+| 10 | Purchase loan + vendor settlement | 7, 9 | Affordability check (stateless what-if), purchase loans superseding baseline offers, on-chain vendor settlement (SPL transfer), Bean Mart demo store |
 
 ### Phase details
 
@@ -194,6 +195,38 @@ Real KYC, real fiat on/off-ramps, mainnet, zero-knowledge proofs, partner-bank i
   - **Demo:** `advanceMonth` and the new `resetDemo` are restricted to the configured demo user (`DemoService.requireDemoUser`). `DemoResetService` (single background worker, status IDLE/RUNNING/DONE/FAILED): deletes the demo user's notifications, settlement steps, loans, offers, forecast snapshots, credential, wallet, transactions, balance snapshots and recurring expenses (Nessie bills too), unlinks Nessie, rewinds the clock (global), refreshes the CAGG, re-seeds Nessie (`DemoNessieSeeder.seedAndSync`, reusing merchants), re-seeds Tier 1, publishes `credential.updated` + `cashflow.changed`. `DemoController.demoStatus` exposes reset progress and Explorer links (bank, pool, reputation config).
   - **Frontend (redesign):** react-router shell (`AppShell`: navy top bar, Home / Forecast / Loans / Beanstalk / Expenses, bell, sign-out; mobile bottom tab bar; skip link; "Built on Capital One services" footer). Home answers first (status sentence + runway chart with the first shortfall marked) beside the offer or active loan and a beanstalk preview. Signature `Beanstalk` SVG: accept claims a bean, on-time repayment plants it and grows a leaf (WAAPI, static under reduced motion), tier marks at 2/5 leaves, defaults drop leaves. `NotificationBell`, `Toasts` (aria-live), `DemoPanel` (presenter only). `useLiveUpdates` subscribes once and debounces `refetchQueries('active')`; 30 s fallback polling. Manrope Variable self-hosted, lucide icons, Apollo split link (`GraphQLWsLink` + HTTP) with merge policies for id-less singletons.
   - **Tests:** `NotificationTemplatesTest`, `LiveEventsTest`, `LiveAndDemoIntegrationTest` (real WebSocket subscription delivers only to the owner; bad token refused; unread/markRead; non-demo user can't advance/reset; reset re-links Nessie, clears state, rewinds clock, re-seeds Tier 1). Frontend: `tsc` + `vite build` clean; impeccable detector clean; headless-Chrome review at 1440 and 390 with a fresh-context finish review (fix → verdict pass → remaining items fixed).
+
+**Phase 10 — Purchase Loans & Vendor Settlement**
+- **Decisions (user):**
+  1. The affordability check (`purchaseCheck`) is completely stateless and recomputed server-side on loan acceptance.
+  2. The what-if simulation subtracts the spend directly from `startingBalance` in `ForecastService` without mutating the core `ForecastEngine`.
+  3. Verdict horizon is current month plus 3 months (repayment window); later shortfalls are informational only.
+  4. Accepting a purchase loan supersedes any open baseline offer in the same database transaction.
+  5. Privacy / Fair Lending: The purchase product label is never sent to Gemini AI (the explanation prompt strictly uses amounts, months, and categories).
+  6. The on-chain Anchor `microloan` program remains unmodified. Vendor payment uses SPL Token `transfer` (classic token opcode 3) from the borrower's custodial token account to the vendor's wallet, combined with mirrored mock USDC minting to match fiat account balances.
+  7. The vendor wallet address is configured via `solana.vendor-wallet-address` (defaults to devnet address).
+- **Database Migrations:**
+  - `V10__purchase_loan.sql`: Added `purpose` (default `'BASELINE'`), `purchase_label`, `purchase_amount` to `loan_offer` and `loan`.
+  - `V11__vendor_settlement.sql`: Added `payee_merchant_id`, `solana_vendor_signature` to `loan`.
+- **Backend Implementation:**
+  - `com.shbean.purchase`: `PurchaseService`, `PurchaseController`, `PurchaseCheckResult`, `PurchaseProposal`, `PurchaseVerdict`.
+  - `LoanService.acceptPurchase(...)`: Re-verifies live terms, supersedes open baseline offers, creates a `PURCHASE` offer/loan, and triggers immediate disbursement for the current month.
+  - `ExplanationService.explainPurchase(...)`: Cached AI explanations with structured deterministic fallbacks.
+  - `SplToken.transfer(...)`: SPL Token instruction builder for token transfers.
+  - `LoanLedger.payVendor(...)`: Mints borrower portion if needed and signs borrower SPL transfer to the vendor's token account.
+  - `DisbursementSaga`: Executed in order: chain disburse → fiat deposit → chain pay vendor → fiat purchase → ACTIVE.
+  - `DemoScenario`: Registered `"Bean Mart"` (`beanmart`) merchant in the demo catalog.
+- **Frontend Implementation:**
+  - `PurchaseCheck.tsx`: Card on Home page for interactive affordability checks, live what-if comparison series on the runway chart, proposal terms display, consent checkbox, and loan acceptance. Includes demo preset buttons ($20, $450, $900).
+  - `RunwayChart.tsx`: Added dual-series rendering for baseline vs. with-purchase comparison.
+  - `Store.tsx` at `/store`: "Bean Mart" showcase with 3 demo items ($20 Grinder - Affordable, $450 Keg - Micro-Loan Eligible, $900 Machine - Exceeds Limit) with instant buy and microloan checkout modal.
+  - Navigation: Added Store link to desktop and mobile navigation in `AppShell.tsx`, and added "Simulate Checkout" quick action to `DemoPanel.tsx`.
+- **Tests:**
+  - `OfferEngineTest`: 12 purchase test cases (affordable, immediate gap, cap exceeded, no repay month, intermediate dip, fee rounding).
+  - `PurchaseServiceTest`: 5 unit tests for affordability, loan eligibility, tier limits, and input sanitation.
+  - `NotificationTemplatesTest`: 5 tests including "Paid <vendor>" copy.
+  - `SettlementSagaIntegrationTest`: Vendor payment ordering (disburse → deposit → payVendor → purchase), resume after crash, and idempotent deduplication.
+  - `LoanLifecycleIntegrationTest`: Stale `expectedTotalDue` rejection and baseline offer supersession.
 
 ---
 

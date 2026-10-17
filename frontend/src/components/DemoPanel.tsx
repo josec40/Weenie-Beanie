@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { gql, useMutation, useQuery } from '@apollo/client';
-import { ExternalLink, FastForward, Presentation, RotateCcw, X } from 'lucide-react';
+import { ExternalLink, FastForward, Presentation, RotateCcw, ShoppingBag, X } from 'lucide-react';
 import { monthLong } from '../lib/format';
 
 export const DEMO_STATUS = gql`
@@ -114,6 +115,15 @@ export default function DemoPanel() {
               <FastForward aria-hidden="true" size={16} />
               {advanceState.loading ? 'Advancing…' : 'Advance One Month'}
             </button>
+            <Link
+              to="/store"
+              className="button button--secondary"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}
+              onClick={() => setOpen(false)}
+            >
+              <ShoppingBag aria-hidden="true" size={16} />
+              Simulate Checkout
+            </Link>
             {!confirming ? (
               <button type="button" className="button button--ghost-dark" disabled={resetting} onClick={() => setConfirming(true)}>
                 <RotateCcw aria-hidden="true" size={16} />

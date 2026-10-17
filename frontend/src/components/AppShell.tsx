@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { gql, useQuery } from '@apollo/client';
-import { ArrowLeftRight, ChartColumn, House, LogOut, ReceiptText, Sprout } from 'lucide-react';
+import { ArrowLeftRight, ChartColumn, House, LogOut, ReceiptText, ShoppingBag, Sprout } from 'lucide-react';
 import { signOut } from '../apollo';
 import { useLiveUpdates, type LiveNotification } from '../hooks/useLiveUpdates';
 import { BeanTile } from './BeanWorld';
@@ -23,6 +23,7 @@ const NAV = [
   { to: '/loans', label: 'Loans', icon: ArrowLeftRight, end: false },
   { to: '/beanstalk', label: 'Beanstalk', icon: Sprout, end: false },
   { to: '/expenses', label: 'Expenses', icon: ReceiptText, end: false },
+  { to: '/store', label: 'Store', icon: ShoppingBag, end: false },
 ];
 
 export function Wordmark({ inverse = false }: { inverse?: boolean }) {

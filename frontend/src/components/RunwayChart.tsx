@@ -5,22 +5,50 @@ export type RunwayMonth = { month: string; endingBalance: number; shortfall: boo
 
 const INK = '#1f4e79';
 const RED = '#b3261e';
+const AMBER = '#d97706';
+const AMBER_RED = '#991b1b';
 
-/** Projected end-of-month balance per month; shortfall months in red, the selected month emphasized. */
+/** Projected end-of-month balance per month; shortfall months in red, optional what-if series. */
 export default function RunwayChart({
   months,
+  whatIfMonths,
   height = 240,
   selected,
   onSelect,
 }: {
   months: RunwayMonth[];
+  whatIfMonths?: RunwayMonth[] | null;
   height?: number;
   selected?: string | null;
   onSelect?: (month: string) => void;
 }) {
-  const data = months.map((m) => ({ ...m, label: monthShort(m.month) }));
+  const whatIfMap = new Map(whatIfMonths?.map((m) => [m.month, m]));
+  const hasWhatIf = Boolean(whatIfMonths && whatIfMonths.length > 0);
+
+  const data = months.map((m) => {
+    const wi = whatIfMap.get(m.month);
+    return {
+      ...m,
+      label: monthShort(m.month),
+      whatIfEndingBalance: wi ? wi.endingBalance : undefined,
+      whatIfShortfall: wi ? wi.shortfall : false,
+    };
+  });
+
   return (
     <div className="runway" role="img" aria-label={summary(months)}>
+      {hasWhatIf && (
+        <div style={{ display: 'flex', gap: '16px', fontSize: '0.8rem', fontWeight: 600, marginBottom: '8px' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: INK, display: 'inline-block' }} />
+            Current baseline
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: AMBER, display: 'inline-block' }} />
+            With purchase
+          </span>
+        </div>
+      )}
       <ResponsiveContainer width="100%" height={height}>
         <BarChart
           data={data}
@@ -42,11 +70,14 @@ export default function RunwayChart({
           <Tooltip
             cursor={{ fill: 'rgba(14, 42, 71, 0.06)', radius: 6 } as object}
             contentStyle={{ borderRadius: 12, border: '1px solid #dbe3eb', boxShadow: '0 8px 24px rgba(14, 42, 71, 0.12)' }}
-            formatter={(v: number) => [usd.format(v), 'Ending balance']}
+            formatter={(v: unknown, name: unknown) => [
+              usd.format(Number(v)),
+              name === 'whatIfEndingBalance' ? 'With purchase' : 'Current baseline',
+            ]}
             labelFormatter={(_, payload) => (payload?.[0] ? monthLong(payload[0].payload.month) : '')}
           />
           <ReferenceLine y={0} stroke="#13212f" />
-          <Bar dataKey="endingBalance" radius={[4, 4, 0, 0]} minPointSize={4} cursor={onSelect ? 'pointer' : undefined} isAnimationActive={false}>
+          <Bar dataKey="endingBalance" name="Current baseline" radius={[4, 4, 0, 0]} minPointSize={4} cursor={onSelect ? 'pointer' : undefined} isAnimationActive={false}>
             {data.map((m) => (
               <Cell
                 key={m.month}
@@ -56,6 +87,16 @@ export default function RunwayChart({
               />
             ))}
           </Bar>
+          {hasWhatIf && (
+            <Bar dataKey="whatIfEndingBalance" name="With purchase" radius={[4, 4, 0, 0]} minPointSize={4} isAnimationActive={false}>
+              {data.map((m) => (
+                <Cell
+                  key={`whatif-${m.month}`}
+                  fill={m.whatIfShortfall ? AMBER_RED : AMBER}
+                />
+              ))}
+            </Bar>
+          )}
         </BarChart>
       </ResponsiveContainer>
     </div>

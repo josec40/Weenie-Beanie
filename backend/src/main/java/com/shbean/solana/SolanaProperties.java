@@ -30,11 +30,12 @@ public record SolanaProperties(
         String usdcMint,
         String bankKeypairPath,
         String walletMasterKey,
-        @DefaultValue("10000") long poolTopUpUsdc) {
+        @DefaultValue("10000") long poolTopUpUsdc,
+        @DefaultValue("BeanMartVendor111111111111111111111111111111") String vendorWalletAddress) {
 
     /** Transport-only settings, e.g. for tests that talk to an RPC node without settlement. */
     public static SolanaProperties rpcOnly(String rpcUrl, String commitment, Duration confirmTimeout) {
-        return new SolanaProperties(false, rpcUrl, commitment, confirmTimeout, "devnet", null, null, null, null, null, 0);
+        return new SolanaProperties(false, rpcUrl, commitment, confirmTimeout, "devnet", null, null, null, null, null, 0, null);
     }
 
     public String explorerTxUrl(String signature) {

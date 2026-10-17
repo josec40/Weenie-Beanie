@@ -1,6 +1,7 @@
 package com.shbean.settlement;
 
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,6 +30,7 @@ public class LoanLedger {
 
     static final String CREATE_LOAN = "CREATE_LOAN";
     static final String DISBURSE = "DISBURSE";
+    static final String PAY_VENDOR = "PAY_VENDOR";
     static final String MARK_DEFAULT = "MARK_DEFAULT";
 
     private final SolanaClient client;
@@ -75,6 +77,35 @@ public class LoanLedger {
                 () -> {
                     bank.ensurePool(SolanaBank.units(loan.getPrincipal()));
                     return bankPlan(microloan.disburse(bank.authority().address(), loan.getId(), borrowerToken(loan)));
+                });
+    }
+
+    /**
+     * Transfers the full purchase amount from the borrower's token account to the vendor's token account,
+     * minting the borrower's own portion if needed so the balance covers it.
+     */
+    public String payVendor(Loan loan) {
+        if (loan.getPurchaseAmount() == null) {
+            return null;
+        }
+        long fullAmount = SolanaBank.units(loan.getPurchaseAmount());
+        String borrowerToken = borrowerToken(loan);
+        String vendorWallet = bank.vendorWalletAddress();
+        String vendorToken = SplToken.associatedTokenAddress(client, vendorWallet, microloan.mint());
+        Keypair borrower = wallets.keypairFor(loan.getUserId());
+        String authority = bank.authority().address();
+
+        return executor.execute(loan.getId(), PAY_VENDOR,
+                () -> loan.getSolanaVendorSignature() != null,
+                () -> {
+                    List<Instruction> instructions = new ArrayList<>();
+                    instructions.add(SplToken.createAssociatedTokenAccountIdempotent(authority, vendorToken, vendorWallet, microloan.mint()));
+                    long currentBal = bank.tokenBalance(borrowerToken);
+                    if (currentBal < fullAmount) {
+                        instructions.add(SplToken.mintTo(microloan.mint(), borrowerToken, authority, fullAmount - currentBal));
+                    }
+                    instructions.add(SplToken.transfer(borrowerToken, vendorToken, borrower.address(), fullAmount));
+                    return new Plan(instructions, bank.authority(), List.of(borrower));
                 });
     }
 

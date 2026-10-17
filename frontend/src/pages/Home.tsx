@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { gql, useQuery } from '@apollo/client';
 import { ArrowRight, ChartColumn, ReceiptText, RefreshCw } from 'lucide-react';
 import Beanstalk from '../components/Beanstalk';
 import { ActionList, ActionRow, BeanIcon, HeroLeaves, ProgressTrack } from '../components/BeanWorld';
 import { ActiveLoanCard, LOAN_FIELDS, OPEN_STATUSES, OfferCard, type Loan, type Offer } from '../components/LoanCards';
-import RunwayChart from '../components/RunwayChart';
+import RunwayChart, { type RunwayMonth } from '../components/RunwayChart';
+import PurchaseCheck from '../components/PurchaseCheck';
 import { addMonths, dateTime, monthLong, usd, usdWhole } from '../lib/format';
 
 const HOME = gql`
@@ -76,6 +78,7 @@ export const TIER_CAPS = [200, 500, 1000];
 
 export default function Home() {
   const { data, loading, error, refetch } = useQuery<HomeData>(HOME, { pollInterval: 30000 });
+  const [whatIfMonths, setWhatIfMonths] = useState<RunwayMonth[] | null>(null);
 
   if (loading && !data) return <PageSkeleton />;
   if (error || !data) {
@@ -126,9 +129,12 @@ export default function Home() {
                 Projected end-of-month balance
                 {firstShortfall && <span className="figcaption__mark"> · first shortfall {monthLong(firstShortfall.month)}</span>}
               </figcaption>
-              <RunwayChart months={months} height={250} selected={firstShortfall?.month ?? null} />
+              <RunwayChart months={months} whatIfMonths={whatIfMonths} height={250} selected={firstShortfall?.month ?? null} />
             </figure>
           )}
+
+          <PurchaseCheck onWhatIfMonths={setWhatIfMonths} onLoanAccepted={() => void refetch()} />
+
           <ActionList label="Shortcuts">
             <ActionRow
               to="/forecast"

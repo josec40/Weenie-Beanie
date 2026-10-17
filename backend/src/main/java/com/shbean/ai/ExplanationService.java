@@ -54,6 +54,11 @@ public class ExplanationService {
                              String repaymentMonth, BigDecimal projectedSurplus) {
     }
 
+    public record PurchaseFacts(BigDecimal amount, String verdict, BigDecimal balanceNow, BigDecimal gapToday,
+                                BigDecimal principal, BigDecimal fee, String repaymentMonth, BigDecimal totalDue,
+                                String affordableFrom, String laterShortfallMonth) {
+    }
+
     private static final int MAX_CHARS = 700;
     private static final String SYSTEM = """
             You are a friendly assistant for a retail bank. Explain the facts to the customer in at most %d short sentences,
@@ -85,6 +90,12 @@ public class ExplanationService {
                 "Explain this proactive micro-loan offer: why it is offered, how much, the flat fee, and that repayment "
                         + "is drafted automatically in the repayment month.",
                 () -> fallbackOffer(facts));
+    }
+
+    public Explanation explainPurchase(PurchaseFacts facts) {
+        return explain("PURCHASE", facts, 3,
+                "Explain this purchase affordability check to the customer: verdict, current balance, loan terms if available, and any future shortfalls.",
+                () -> fallbackPurchase(facts));
     }
 
     private Explanation explain(String kind, Object facts, int sentences, String task, Supplier<String> fallback) {
@@ -155,6 +166,32 @@ public class ExplanationService {
                 + "It is repaid automatically in %s, when your forecast shows a surplus of about %s.")
                 .formatted(money(o.projectedDeficit()), label(o.shortfallMonth()), money(o.principal()), money(o.fee()),
                         label(o.repaymentMonth()), money(o.projectedSurplus()));
+    }
+
+    static String fallbackPurchase(PurchaseFacts f) {
+        if ("AFFORDABLE".equals(f.verdict())) {
+            StringBuilder sb = new StringBuilder("You can comfortably afford this %s purchase with your current balance of %s."
+                    .formatted(money(f.amount()), money(f.balanceNow())));
+            if (f.laterShortfallMonth() != null) {
+                sb.append(" Keep in mind that a cash-flow shortfall is projected later in %s.".formatted(label(f.laterShortfallMonth())));
+            }
+            return sb.toString();
+        }
+        if ("LOAN_AVAILABLE".equals(f.verdict())) {
+            StringBuilder sb = new StringBuilder("This %s purchase exceeds your current balance by %s. We can cover it with a micro-loan of %s for a flat fee of %s (total %s due), automatically repaid in %s when your balance recovers."
+                    .formatted(money(f.amount()), money(f.gapToday()), money(f.principal()), money(f.fee()),
+                            money(f.totalDue()), label(f.repaymentMonth())));
+            if (f.laterShortfallMonth() != null) {
+                sb.append(" Note: a separate shortfall is projected in %s.".formatted(label(f.laterShortfallMonth())));
+            }
+            return sb.toString();
+        }
+        StringBuilder sb = new StringBuilder("This %s purchase is not currently eligible for a micro-loan."
+                .formatted(money(f.amount())));
+        if (f.affordableFrom() != null) {
+            sb.append(" Based on your forecast, you could comfortably afford this starting in %s.".formatted(label(f.affordableFrom())));
+        }
+        return sb.toString();
     }
 
     private String toJson(Object facts) {

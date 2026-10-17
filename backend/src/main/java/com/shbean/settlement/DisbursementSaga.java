@@ -1,6 +1,11 @@
 package com.shbean.settlement;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -11,9 +16,15 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.shbean.cashflow.NessieSyncService;
+import com.shbean.cashflow.TransactionStore;
+import com.shbean.cashflow.TransactionStore.BalanceSnapshot;
+import com.shbean.cashflow.TransactionStore.TransactionRow;
 import com.shbean.events.EventEnvelope;
 import com.shbean.events.EventPublisher;
+import com.shbean.events.Events.CashflowChanged;
+import com.shbean.events.Events.CashflowReason;
 import com.shbean.events.Events.LoanEvent;
+import com.shbean.events.Events.TransactionsIngested;
 import com.shbean.events.Topics;
 import com.shbean.loan.Loan;
 import com.shbean.loan.LoanRepository;
@@ -29,6 +40,7 @@ import com.shbean.user.AppUserRepository;
 public class DisbursementSaga {
 
     static final String DEPOSIT = "DEPOSIT_FIAT";
+    static final String PURCHASE = "PURCHASE_FIAT";
     public static final String SETTLEMENT_FAILED = "SETTLEMENT_FAILED";
 
     private static final Logger log = LoggerFactory.getLogger(DisbursementSaga.class);
@@ -38,16 +50,19 @@ public class DisbursementSaga {
     private final ObjectProvider<LoanLedger> chain;
     private final NessieLedger fiat;
     private final NessieSyncService sync;
+    private final TransactionStore store;
     private final EventPublisher events;
     private final TransactionTemplate tx;
 
     public DisbursementSaga(LoanRepository loans, AppUserRepository users, ObjectProvider<LoanLedger> chain,
-                            NessieLedger fiat, NessieSyncService sync, EventPublisher events, TransactionTemplate tx) {
+                            NessieLedger fiat, NessieSyncService sync, TransactionStore store,
+                            EventPublisher events, TransactionTemplate tx) {
         this.loans = loans;
         this.users = users;
         this.chain = chain;
         this.fiat = fiat;
         this.sync = sync;
+        this.store = store;
         this.events = events;
         this.tx = tx;
     }
@@ -69,19 +84,79 @@ public class DisbursementSaga {
         String depositId = fiat.deposit(loanId, DEPOSIT, user.getNessieCheckingAccountId(), month.atDay(1),
                 loan.getPrincipal(), NessieLedger.disbursementDescription(loanId));
 
+        String vendorSig = null;
+        if ("PURCHASE".equals(loan.getPurpose()) && loan.getPurchaseAmount() != null) {
+            if (ledger != null) {
+                vendorSig = ledger.payVendor(loan);
+            }
+            if (loan.getPayeeMerchantId() != null) {
+                fiat.purchase(loanId, PURCHASE, user.getNessieCheckingAccountId(), loan.getPayeeMerchantId(),
+                        month.atDay(1), loan.getPurchaseAmount(), NessieLedger.purchaseDescription(loanId));
+            }
+        }
+
         String disburseSig = signature;
+        String finalVendorSig = vendorSig;
         Loan done = tx.execute(s -> loans.findById(loanId)
                 .filter(l -> l.getStatus() == Loan.Status.DISBURSING)
                 .map(l -> {
-                    l.disbursed(depositId, disburseSig);
+                    l.disbursed(depositId, disburseSig, finalVendorSig);
                     return l;
                 })
                 .orElse(null));
         if (done == null) {
             return;
         }
+
+        // Direct ledger updates: record deposit and purchase in account_transaction and update balance_snapshot
+        List<TransactionRow> newRows = new ArrayList<>();
+        String depTxnId = depositId != null ? depositId : "loan-deposit-" + loanId;
+        newRows.add(new TransactionRow(
+                depTxnId,
+                Instant.now(),
+                user.getId(),
+                user.getNessieCheckingAccountId(),
+                "DEPOSIT",
+                done.getPrincipal(),
+                "Income",
+                "ShBean micro-loan disbursement " + loanId,
+                null,
+                "completed"
+        ));
+
+        if ("PURCHASE".equals(done.getPurpose()) && done.getPurchaseAmount() != null) {
+            String purchTxnId = "purchase-" + loanId;
+            newRows.add(new TransactionRow(
+                    purchTxnId,
+                    Instant.now(),
+                    user.getId(),
+                    user.getNessieCheckingAccountId(),
+                    "PURCHASE",
+                    done.getPurchaseAmount().abs().negate(),
+                    "Shopping",
+                    "Bean Mart - " + (done.getPurchaseLabel() != null ? done.getPurchaseLabel() : "Store purchase"),
+                    done.getPayeeMerchantId(),
+                    "completed"
+            ));
+        }
+
+        store.insertNew(newRows);
+        BigDecimal currentBal = store.latestBalance(user.getNessieCheckingAccountId())
+                .map(BalanceSnapshot::balance).orElse(BigDecimal.ZERO);
+        BigDecimal newBal;
+        if ("PURCHASE".equals(done.getPurpose()) && done.getPurchaseAmount() != null) {
+            newBal = currentBal.add(done.getPrincipal()).subtract(done.getPurchaseAmount()).max(BigDecimal.ZERO);
+        } else {
+            newBal = currentBal.add(done.getPrincipal());
+        }
+        store.insertBalanceSnapshot(user.getNessieCheckingAccountId(), Instant.now(), user.getId(), newBal);
+        events.publish(Topics.TRANSACTIONS_INGESTED, user.getId(),
+                new TransactionsIngested(newRows.size(), LocalDate.now(), LocalDate.now(), newBal));
+        events.publish(Topics.CASHFLOW_CHANGED, user.getId(), new CashflowChanged(CashflowReason.TRANSACTIONS));
+
         syncQuietly(sync, user);
-        LoanEvent event = LoanService.event(done, month, null);
+        String payee = done.getPurchaseLabel();
+        LoanEvent event = LoanService.event(done, month, null, payee);
         events.publish(Topics.LOAN_FIAT_SETTLED, user.getId(), event, cause);
         events.publish(Topics.LOAN_DISBURSED, user.getId(), event, cause);
     }

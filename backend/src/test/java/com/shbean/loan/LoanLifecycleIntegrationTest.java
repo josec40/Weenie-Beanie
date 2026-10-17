@@ -13,6 +13,8 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.YearMonth;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,8 +28,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import com.shbean.TestInfra;
 import com.shbean.cashflow.TransactionStore;
 import com.shbean.demo.DemoClock;
+import com.shbean.demo.DemoScenario;
 import com.shbean.nessie.NessieClient;
 import com.shbean.nessie.NessieModels.CreateTransferRequest;
+import com.shbean.nessie.NessieModels.Purchase;
 import com.shbean.nessie.NessieModels.Transfer;
 import com.shbean.loan.OfferEngine.Decision;
 import com.shbean.loan.OfferEngine.Proposal;
@@ -110,6 +114,70 @@ class LoanLifecycleIntegrationTest {
         loans.closeMonth(current.plusMonths(3));
         assertThat(status(loan)).isEqualTo(Loan.Status.DEFAULTED);
         verify(nessie, never()).createWithdrawal(eq("acct-short"), any());
+    }
+
+    @Test
+    void acceptPurchaseRejectsStaleExpectedTotalDue() {
+        AppUser user = linkedUser("stale", "acct-stale", "300");
+        YearMonth current = clock.currentMonth();
+        seedTransactions(user, current);
+
+        assertThatThrownBy(() -> loans.acceptPurchase(user, new BigDecimal("450.00"), "Cold Brew Keg", true,
+                new BigDecimal("999.00"), "beanmart"))
+                .hasMessageContaining("Offer terms have changed");
+    }
+
+    @Test
+    void acceptPurchaseSupersedesOpenBaselineOfferAndDisbursesImmediately() {
+        AppUser user = linkedUser("super", "acct-super", "300");
+        YearMonth current = clock.currentMonth();
+        seedTransactions(user, current);
+
+        LoanOffer baselineOffer = offer(user, current.plusMonths(1), current.plusMonths(2));
+        assertThat(baselineOffer.getStatus()).isEqualTo(LoanOffer.Status.OFFERED);
+
+        when(nessie.createDeposit(eq("acct-super"), any())).thenReturn(transfer("dep-super"));
+        when(nessie.createPurchase(eq("acct-super"), any())).thenReturn(new Purchase("purch-super", "beanmart",
+                LocalDate.now(), "completed", "balance", new BigDecimal("450.00"), "desc"));
+
+        Loan purchaseLoan = loans.acceptPurchase(user, new BigDecimal("450.00"), "Cold Brew Keg", true,
+                new BigDecimal("157.50"), "beanmart");
+
+        assertThat(purchaseLoan.getStatus()).isEqualTo(Loan.Status.DISBURSING);
+        assertThat(purchaseLoan.getPurpose()).isEqualTo("PURCHASE");
+        assertThat(purchaseLoan.getPurchaseLabel()).isEqualTo("Cold Brew Keg");
+        assertThat(purchaseLoan.getPurchaseAmount()).isEqualByComparingTo("450.00");
+        assertThat(purchaseLoan.getPrincipal()).isEqualByComparingTo("150.00");
+        assertThat(purchaseLoan.getFee()).isEqualByComparingTo("7.50");
+        assertThat(purchaseLoan.getTotalDue()).isEqualByComparingTo("157.50");
+
+        // Baseline offer was superseded
+        assertThat(offerRepo.findById(baselineOffer.getId()).orElseThrow().getStatus())
+                .isEqualTo(LoanOffer.Status.SUPERSEDED);
+
+        await().atMost(Duration.ofSeconds(30)).until(() -> status(purchaseLoan) == Loan.Status.ACTIVE);
+    }
+
+    private void seedTransactions(AppUser user, YearMonth current) {
+        List<DemoScenario.PlannedTxn> planned = DemoScenario.history(current, 42);
+        List<TransactionStore.TransactionRow> rows = new ArrayList<>();
+        int id = 1;
+        for (DemoScenario.PlannedTxn p : planned) {
+            rows.add(new TransactionStore.TransactionRow(
+                    "txn-" + user.getId() + "-" + (id++),
+                    p.date().atStartOfDay().toInstant(java.time.ZoneOffset.UTC),
+                    user.getId(),
+                    user.getNessieCheckingAccountId(),
+                    p.kind().name().toLowerCase(),
+                    p.amount(),
+                    p.kind() == DemoScenario.Kind.DEPOSIT ? "income" : "general",
+                    p.description(),
+                    p.merchantKey(),
+                    "completed"
+            ));
+        }
+        store.insertNew(rows);
+        store.refreshMonthlyCashflow(current.minusMonths(DemoScenario.HISTORY_MONTHS).atDay(1), current.plusMonths(12).atDay(1));
     }
 
     private AppUser linkedUser(String name, String account, String balance) {

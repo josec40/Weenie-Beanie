@@ -33,13 +33,17 @@ import com.shbean.cashflow.TransactionStore;
 import com.shbean.demo.DemoClock;
 import com.shbean.loan.Loan;
 import com.shbean.loan.LoanOffer;
+import com.shbean.loan.LoanOfferRepository;
 import com.shbean.loan.LoanRepository;
 import com.shbean.loan.LoanService;
 import com.shbean.loan.OfferEngine.Decision;
 import com.shbean.loan.OfferEngine.Proposal;
+import java.time.LocalDate;
 import com.shbean.loan.OfferService;
 import com.shbean.nessie.NessieClient;
+import com.shbean.nessie.NessieModels.CreatePurchaseRequest;
 import com.shbean.nessie.NessieModels.CreateTransferRequest;
+import com.shbean.nessie.NessieModels.Purchase;
 import com.shbean.nessie.NessieModels.Transfer;
 import com.shbean.user.AppUser;
 import com.shbean.user.AppUserRepository;
@@ -59,12 +63,14 @@ class SettlementSagaIntegrationTest {
     @MockitoBean NessieClient nessie;
     @MockitoBean LoanLedger ledger;
     @Autowired OfferService offers;
+    @Autowired LoanOfferRepository offerRepo;
     @Autowired LoanService loans;
     @Autowired LoanRepository loanRepo;
     @Autowired AppUserRepository users;
     @Autowired TransactionStore store;
     @Autowired DemoClock clock;
     @Autowired SettlementSteps steps;
+    @Autowired DisbursementSaga disbursementSaga;
     @Autowired JdbcTemplate jdbc;
 
     @BeforeEach
@@ -153,6 +159,79 @@ class SettlementSagaIntegrationTest {
         assertThat(loanRepo.findById(loan.getId()).orElseThrow().getNessieWithdrawalId()).isEqualTo("wd-earlier");
         verify(nessie, never()).createWithdrawal(eq("acct-resume"), any());
         verify(ledger).repay(argThat(l -> l.getId().equals(loan.getId())));
+    }
+
+    @Test
+    void purchaseSagaPaysVendorOnChainAndViaNessieInCorrectOrder() {
+        AppUser user = linkedUser("vendor", "acct-vendor", "1000");
+        YearMonth current = clock.currentMonth();
+        when(nessie.createDeposit(eq("acct-vendor"), any())).thenReturn(transfer("dep-vendor"));
+        when(nessie.createPurchase(eq("acct-vendor"), any())).thenReturn(new Purchase("purch-vendor", "beanmart",
+                LocalDate.now(), "completed", "balance", new BigDecimal("450.00"), "desc"));
+        when(ledger.disburse(any())).thenReturn("sig-disburse");
+        when(ledger.payVendor(any())).thenReturn("sig-vendor");
+
+        LoanOffer offer = new LoanOffer(user.getId(), null,
+                new Proposal(current, new BigDecimal("150.00"), new BigDecimal("150.00"), new BigDecimal("7.50"),
+                        current.plusMonths(1), new BigDecimal("800.00"), 1),
+                "purchase explanation", "PURCHASE", "Cold Brew Keg", new BigDecimal("450.00"));
+        offer = offerRepo.save(offer);
+        Loan loan = new Loan(offer);
+        loan.setPayeeMerchantId("beanmart");
+        loan.startDisbursing();
+        loan = loanRepo.save(loan);
+
+        disbursementSaga.run(loan.getId(), current, null);
+
+        Loan active = loanRepo.findById(loan.getId()).orElseThrow();
+        assertThat(active.getStatus()).isEqualTo(Loan.Status.ACTIVE);
+        assertThat(active.getSolanaDisburseSignature()).isEqualTo("sig-disburse");
+        assertThat(active.getSolanaVendorSignature()).isEqualTo("sig-vendor");
+        assertThat(active.getNessieDepositId()).isEqualTo("dep-vendor");
+
+        InOrder order = inOrder(ledger, nessie);
+        order.verify(ledger).open(any());
+        order.verify(ledger).disburse(any());
+        order.verify(nessie).createDeposit(eq("acct-vendor"), any());
+        order.verify(ledger).payVendor(any());
+        order.verify(nessie).createPurchase(eq("acct-vendor"), any());
+
+        assertThat(steps.find(loan.getId(), DisbursementSaga.DEPOSIT)).get()
+                .extracting(SettlementSteps.Step::externalId).isEqualTo("dep-vendor");
+        assertThat(steps.find(loan.getId(), DisbursementSaga.PURCHASE)).get()
+                .extracting(SettlementSteps.Step::externalId).isEqualTo("purch-vendor");
+    }
+
+    @Test
+    void purchaseSagaResumesWithoutDuplicatingCompletedSteps() {
+        AppUser user = linkedUser("resume-p", "acct-resume-p", "1000");
+        YearMonth current = clock.currentMonth();
+        when(nessie.createDeposit(eq("acct-resume-p"), any())).thenReturn(transfer("dep-rp"));
+        when(nessie.createPurchase(eq("acct-resume-p"), any())).thenReturn(new Purchase("purch-rp", "beanmart",
+                LocalDate.now(), "completed", "balance", new BigDecimal("450.00"), "desc"));
+        when(ledger.disburse(any())).thenReturn("sig-disburse");
+        when(ledger.payVendor(any())).thenReturn("sig-vendor");
+
+        LoanOffer offer = new LoanOffer(user.getId(), null,
+                new Proposal(current, new BigDecimal("150.00"), new BigDecimal("150.00"), new BigDecimal("7.50"),
+                        current.plusMonths(1), new BigDecimal("800.00"), 1),
+                "purchase explanation", "PURCHASE", "Cold Brew Keg", new BigDecimal("450.00"));
+        offer = offerRepo.save(offer);
+        Loan loan = new Loan(offer);
+        loan.setPayeeMerchantId("beanmart");
+        loan.startDisbursing();
+        loan = loanRepo.save(loan);
+
+        // Pre-record deposit so the saga skips it on resume
+        steps.done(loan.getId(), DisbursementSaga.DEPOSIT, null, "dep-rp");
+
+        disbursementSaga.run(loan.getId(), current, null);
+
+        Loan active = loanRepo.findById(loan.getId()).orElseThrow();
+        assertThat(active.getStatus()).isEqualTo(Loan.Status.ACTIVE);
+        verify(nessie, never()).createDeposit(eq("acct-resume-p"), any());
+        verify(ledger).payVendor(any());
+        verify(nessie).createPurchase(eq("acct-resume-p"), any());
     }
 
     private AppUser linkedUser(String name, String account, String balance) {

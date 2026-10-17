@@ -28,8 +28,12 @@ export type Loan = {
   lastFailure: string | null;
   disburseTxUrl: string | null;
   repayTxUrl: string | null;
+  vendorTxUrl: string | null;
   nessieDepositId: string | null;
   nessieWithdrawalId: string | null;
+  purpose: string;
+  purchaseLabel: string | null;
+  purchaseAmount: number | null;
   createdAt: string;
 };
 
@@ -47,8 +51,12 @@ export const LOAN_FIELDS = gql`
     lastFailure
     disburseTxUrl
     repayTxUrl
+    vendorTxUrl
     nessieDepositId
     nessieWithdrawalId
+    purpose
+    purchaseLabel
+    purchaseAmount
     createdAt
   }
 `;
@@ -186,6 +194,12 @@ export function ActiveLoanCard({ loan }: { loan: Loan }) {
         <span className="figure">{usd.format(loan.principal)}</span>
         <span className="muted"> + {usd.format(loan.fee)} fee</span>
       </p>
+      {loan.purchaseLabel && (
+        <p className="small muted">
+          For purchase: <strong>{loan.purchaseLabel}</strong>
+          {loan.purchaseAmount ? ` (${usd.format(loan.purchaseAmount)})` : ''}
+        </p>
+      )}
       <p>{copy.text}</p>
       {loan.lastFailure && loan.status !== 'LATE' && (
         <p className="form-error">There's a delay settling this loan. No money moves twice; we'll keep retrying.</p>

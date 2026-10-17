@@ -26,7 +26,7 @@ public class CashflowController {
                                   String description) {
     }
 
-    private static final long MAX_RANGE_DAYS = 731;
+    private static final long MAX_RANGE_DAYS = 1826;
 
     private final TransactionStore store;
     private final RecurringExpenseService recurring;

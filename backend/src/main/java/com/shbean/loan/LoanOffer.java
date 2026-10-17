@@ -59,10 +59,24 @@ public class LoanOffer {
     @Column(name = "decided_at")
     private Instant decidedAt;
 
+    @Column(nullable = false)
+    private String purpose = "BASELINE";
+
+    @Column(name = "purchase_label")
+    private String purchaseLabel;
+
+    @Column(name = "purchase_amount")
+    private BigDecimal purchaseAmount;
+
     protected LoanOffer() {
     }
 
     public LoanOffer(UUID userId, UUID forecastSnapshotId, OfferEngine.Proposal p, String explanation) {
+        this(userId, forecastSnapshotId, p, explanation, "BASELINE", null, null);
+    }
+
+    public LoanOffer(UUID userId, UUID forecastSnapshotId, OfferEngine.Proposal p, String explanation,
+                     String purpose, String purchaseLabel, BigDecimal purchaseAmount) {
         this.id = UUID.randomUUID();
         this.userId = userId;
         this.forecastSnapshotId = forecastSnapshotId;
@@ -75,6 +89,9 @@ public class LoanOffer {
         this.tier = (short) p.tier();
         this.status = Status.OFFERED;
         this.explanation = explanation;
+        this.purpose = purpose != null ? purpose : "BASELINE";
+        this.purchaseLabel = purchaseLabel;
+        this.purchaseAmount = purchaseAmount;
         this.createdAt = Instant.now();
     }
 
@@ -131,5 +148,17 @@ public class LoanOffer {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public String getPurpose() {
+        return purpose;
+    }
+
+    public String getPurchaseLabel() {
+        return purchaseLabel;
+    }
+
+    public BigDecimal getPurchaseAmount() {
+        return purchaseAmount;
     }
 }

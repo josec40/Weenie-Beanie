@@ -16,6 +16,7 @@ public final class SplToken {
     public static final String SYSTEM_PROGRAM = "11111111111111111111111111111111";
 
     private static final byte MINT_TO = 7;
+    private static final byte TRANSFER = 3;
     private static final byte CREATE_IDEMPOTENT = 1;
     private static final int AMOUNT_OFFSET = 64;
 
@@ -49,6 +50,14 @@ public final class SplToken {
                 AccountMeta.writable(mint),
                 AccountMeta.writable(destination),
                 AccountMeta.signerReadonly(mintAuthority)), data);
+    }
+
+    public static Instruction transfer(String source, String destination, String owner, long amount) {
+        byte[] data = ByteBuffer.allocate(9).order(ByteOrder.LITTLE_ENDIAN).put(TRANSFER).putLong(amount).array();
+        return new Instruction(TOKEN_PROGRAM, List.of(
+                AccountMeta.writable(source),
+                AccountMeta.writable(destination),
+                AccountMeta.signerReadonly(owner)), data);
     }
 
     /** Raw token amount of an SPL token account (mint 32 + owner 32, then u64 LE). */

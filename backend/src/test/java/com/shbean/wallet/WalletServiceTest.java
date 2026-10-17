@@ -22,7 +22,7 @@ class WalletServiceTest {
 
     private static WalletService service(String masterKey) {
         SolanaProperties props = new SolanaProperties(true, "http://localhost", "confirmed", null, "devnet", null, null,
-                null, null, masterKey, 0);
+                null, null, masterKey, 0, null);
         return new WalletService(null, props);
     }
 

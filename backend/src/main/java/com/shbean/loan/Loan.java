@@ -67,6 +67,21 @@ public class Loan {
     @Column(name = "solana_repay_sig")
     private String solanaRepaySig;
 
+    @Column(name = "solana_vendor_signature")
+    private String solanaVendorSignature;
+
+    @Column(name = "payee_merchant_id")
+    private String payeeMerchantId;
+
+    @Column(nullable = false)
+    private String purpose = "BASELINE";
+
+    @Column(name = "purchase_label")
+    private String purchaseLabel;
+
+    @Column(name = "purchase_amount")
+    private BigDecimal purchaseAmount;
+
     @Column(name = "nessie_deposit_id")
     private String nessieDepositId;
 
@@ -103,6 +118,9 @@ public class Loan {
         this.disburseMonth = offer.getShortfallMonth().atDay(1);
         this.repayMonth = offer.getRepaymentMonth().atDay(1);
         this.originalRepayMonth = repayMonth;
+        this.purpose = offer.getPurpose() != null ? offer.getPurpose() : "BASELINE";
+        this.purchaseLabel = offer.getPurchaseLabel();
+        this.purchaseAmount = offer.getPurchaseAmount();
         this.status = Status.ACCEPTED;
         this.createdAt = Instant.now();
         this.updatedAt = createdAt;
@@ -113,13 +131,18 @@ public class Loan {
     }
 
     public void disbursed(String nessieDepositId) {
-        disbursed(nessieDepositId, null);
+        disbursed(nessieDepositId, null, null);
     }
 
     public void disbursed(String nessieDepositId, String solanaSignature) {
+        disbursed(nessieDepositId, solanaSignature, null);
+    }
+
+    public void disbursed(String nessieDepositId, String solanaSignature, String vendorSignature) {
         transition(Status.DISBURSING, Status.ACTIVE);
         this.nessieDepositId = nessieDepositId;
         this.solanaDisburseSig = solanaSignature;
+        this.solanaVendorSignature = vendorSignature;
         this.lastFailure = null;
     }
 
@@ -284,5 +307,45 @@ public class Loan {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public String getPurpose() {
+        return purpose;
+    }
+
+    public void setPurpose(String purpose) {
+        this.purpose = purpose;
+    }
+
+    public String getPurchaseLabel() {
+        return purchaseLabel;
+    }
+
+    public void setPurchaseLabel(String purchaseLabel) {
+        this.purchaseLabel = purchaseLabel;
+    }
+
+    public BigDecimal getPurchaseAmount() {
+        return purchaseAmount;
+    }
+
+    public void setPurchaseAmount(BigDecimal purchaseAmount) {
+        this.purchaseAmount = purchaseAmount;
+    }
+
+    public String getPayeeMerchantId() {
+        return payeeMerchantId;
+    }
+
+    public void setPayeeMerchantId(String payeeMerchantId) {
+        this.payeeMerchantId = payeeMerchantId;
+    }
+
+    public String getSolanaVendorSignature() {
+        return solanaVendorSignature;
+    }
+
+    public void setSolanaVendorSignature(String solanaVendorSignature) {
+        this.solanaVendorSignature = solanaVendorSignature;
     }
 }

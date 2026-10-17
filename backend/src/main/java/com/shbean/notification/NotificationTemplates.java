@@ -39,8 +39,11 @@ final class NotificationTemplates {
         BigDecimal due = l.principal().add(l.fee());
         return switch (topic) {
             case Topics.LOAN_DISBURSED -> Optional.of(new Message("LOAN_DISBURSED",
-                    usd(l.principal()) + " is in your account",
-                    "Your micro-loan was deposited. Your bean is claimed; repay on time to plant it.", "/loans"));
+                    l.payee() != null ? "Paid " + l.payee() + " (" + usd(l.principal()) + ")" : usd(l.principal()) + " is in your account",
+                    l.payee() != null
+                            ? "Your purchase at " + l.payee() + " was paid with a micro-loan. Repay on time to keep your beanstalk growing."
+                            : "Your micro-loan was deposited. Your bean is claimed; repay on time to plant it.",
+                    "/loans"));
             case Topics.LOAN_REPAID -> Optional.of(new Message("LOAN_REPAID", "Repayment complete",
                     usd(due) + " was repaid automatically. Thanks for keeping your beanstalk growing.", "/loans"));
             case Topics.LOAN_DEFAULTED -> Optional.of(new Message("LOAN_DEFAULTED", "Loan marked as defaulted",

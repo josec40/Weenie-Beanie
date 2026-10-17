@@ -12,6 +12,7 @@ import Forecast from './pages/Forecast';
 import Home from './pages/Home';
 import Loans from './pages/Loans';
 import Login from './pages/Login';
+import Store from './pages/Store';
 import './index.css';
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -36,6 +37,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="loans" element={<Loans />} />
             <Route path="beanstalk" element={<BeanstalkPage />} />
             <Route path="expenses" element={<Expenses />} />
+            <Route path="store" element={<Store />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

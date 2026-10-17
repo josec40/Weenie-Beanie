@@ -48,6 +48,12 @@ public class SolanaBank {
         return microloan;
     }
 
+    public String vendorWalletAddress() {
+        return props.vendorWalletAddress() != null && !props.vendorWalletAddress().isBlank()
+                ? props.vendorWalletAddress()
+                : authority.address();
+    }
+
     public static long units(BigDecimal usd) {
         return usd.movePointRight(DECIMALS).longValueExact();
     }

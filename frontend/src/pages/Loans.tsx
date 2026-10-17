@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { gql, useMutation, useQuery } from '@apollo/client';
-import { ArrowRight, ExternalLink } from 'lucide-react';
+import { ArrowRight, ExternalLink, AlertCircle } from 'lucide-react';
 import { BeanTile } from '../components/BeanWorld';
 import { LOAN_FIELDS, OPEN_STATUSES, loanCopy, type Loan } from '../components/LoanCards';
 import { monthLong, monthShort, usd } from '../lib/format';
@@ -16,6 +16,9 @@ const LOANS = gql`
       id
       principal
       shortfallMonth
+    }
+    forecast(months: 1) {
+      startingBalance
     }
   }
   ${LOAN_FIELDS}
@@ -36,7 +39,11 @@ const REPAY_EARLY = gql`
   }
 `;
 
-type LoansData = { loans: Loan[]; currentOffer: { id: string; principal: number; shortfallMonth: string } | null };
+type LoansData = {
+  loans: Loan[];
+  currentOffer: { id: string; principal: number; shortfallMonth: string } | null;
+  forecast: { startingBalance: number } | null;
+};
 
 const STEPS: { key: string; label: string; done: (s: string) => boolean }[] = [
   { key: 'accepted', label: 'Accepted', done: () => true },
@@ -63,6 +70,8 @@ export default function Loans() {
 
   const open = data.loans.find((l) => OPEN_STATUSES.includes(l.status));
   const past = data.loans.filter((l) => l !== open);
+  const currentBalance = data.forecast?.startingBalance ?? 0;
+  const isInsufficient = open ? currentBalance < open.totalDue : false;
 
   async function act(action: () => Promise<unknown>) {
     setActionError(null);
@@ -135,6 +144,30 @@ export default function Loans() {
 
           <Proof loan={open} />
 
+          {open.status === 'ACTIVE' && isInsufficient && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '14px 16px',
+                borderRadius: 'var(--radius-sm)',
+                background: '#fff8eb',
+                border: '1.5px solid #fde68a',
+                color: '#92400e',
+                margin: '16px 0',
+                fontSize: '0.9rem',
+              }}
+            >
+              <AlertCircle size={22} style={{ flexShrink: 0 }} />
+              <div>
+                <strong>Early repayment blocked:</strong> Available checking balance ({usd.format(currentBalance)}) is less than
+                total due ({usd.format(open.totalDue)}).
+                Automatic draft will safely execute at the end of <strong>{monthLong(open.repayMonth)}</strong> when your expected income is received.
+              </div>
+            </div>
+          )}
+
           {actionError && (
             <p className="form-error" role="alert">
               {actionError}
@@ -145,10 +178,15 @@ export default function Loans() {
               <button
                 type="button"
                 className="button"
-                disabled={repayState.loading}
+                disabled={repayState.loading || isInsufficient}
                 onClick={() => void act(() => repayEarly({ variables: { loanId: open.id } }))}
+                title={isInsufficient ? `Balance (${usd.format(currentBalance)}) is less than total due (${usd.format(open.totalDue)})` : undefined}
               >
-                {repayState.loading ? 'Starting repayment…' : `Repay ${usd.format(open.totalDue)} Now`}
+                {repayState.loading
+                  ? 'Starting repayment…'
+                  : isInsufficient
+                  ? `Insufficient Balance to Repay (${usd.format(currentBalance)} / ${usd.format(open.totalDue)})`
+                  : `Repay ${usd.format(open.totalDue)} Now`}
               </button>
             )}
             {['ACCEPTED', 'DISBURSING', 'ACTIVE'].includes(open.status) && open.rescheduleCount === 0 && (
@@ -213,7 +251,7 @@ export default function Loans() {
 }
 
 function Proof({ loan, compact = false }: { loan: Loan; compact?: boolean }) {
-  if (!loan.disburseTxUrl && !loan.repayTxUrl) {
+  if (!loan.disburseTxUrl && !loan.repayTxUrl && !loan.vendorTxUrl) {
     return compact ? <span className="muted">—</span> : null;
   }
   return (
@@ -222,6 +260,14 @@ function Proof({ loan, compact = false }: { loan: Loan; compact?: boolean }) {
         <li>
           <a href={loan.disburseTxUrl} target="_blank" rel="noopener noreferrer">
             {compact ? 'Deposit' : 'Deposit on Solana Explorer'}
+            <ExternalLink aria-hidden="true" size={14} />
+          </a>
+        </li>
+      )}
+      {loan.vendorTxUrl && (
+        <li>
+          <a href={loan.vendorTxUrl} target="_blank" rel="noopener noreferrer">
+            {compact ? 'Vendor Payment' : 'Vendor Payment on Solana Explorer'}
             <ExternalLink aria-hidden="true" size={14} />
           </a>
         </li>

@@ -29,7 +29,10 @@ public final class Events {
 
     /** Used for every loan.* topic; {@code month} is the business month of the step, {@code reason} set on failures. */
     public record LoanEvent(UUID loanId, String status, BigDecimal principal, BigDecimal fee, String month,
-                            String reason) {
+                            String reason, String payee) {
+        public LoanEvent(UUID loanId, String status, BigDecimal principal, BigDecimal fee, String month, String reason) {
+            this(loanId, status, principal, fee, month, reason, null);
+        }
     }
 
     public enum RepaymentOutcome { ON_TIME, LATE, DEFAULT }

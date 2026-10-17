@@ -1,7 +1,10 @@
 package com.shbean.settlement;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -11,11 +14,16 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.shbean.cashflow.NessieSyncService;
 import com.shbean.cashflow.TransactionStore;
+import com.shbean.cashflow.TransactionStore.BalanceSnapshot;
+import com.shbean.cashflow.TransactionStore.TransactionRow;
 import com.shbean.events.EventEnvelope;
 import com.shbean.events.EventPublisher;
+import com.shbean.events.Events.CashflowChanged;
+import com.shbean.events.Events.CashflowReason;
 import com.shbean.events.Events.CredentialUpdateRequested;
 import com.shbean.events.Events.LoanEvent;
 import com.shbean.events.Events.RepaymentOutcome;
+import com.shbean.events.Events.TransactionsIngested;
 import com.shbean.events.Topics;
 import com.shbean.loan.Loan;
 import com.shbean.loan.LoanProperties;
@@ -144,6 +152,30 @@ public class RepaymentSaga {
         if (done == null) {
             return;
         }
+
+        // Direct ledger updates: record repayment withdrawal in account_transaction and update balance_snapshot
+        String txnId = withdrawalId != null ? withdrawalId : "loan-repay-" + done.getId() + "-" + done.getRepayAttempt();
+        TransactionRow row = new TransactionRow(
+                txnId,
+                Instant.now(),
+                user.getId(),
+                user.getNessieCheckingAccountId(),
+                "WITHDRAWAL",
+                done.getTotalDue().abs().negate(),
+                "Loans",
+                "ShBean micro-loan repayment " + done.getId(),
+                null,
+                "completed"
+        );
+        store.insertNew(List.of(row));
+        BigDecimal prevBal = store.latestBalance(user.getNessieCheckingAccountId())
+                .map(BalanceSnapshot::balance).orElse(BigDecimal.ZERO);
+        BigDecimal newBal = prevBal.subtract(done.getTotalDue()).max(BigDecimal.ZERO);
+        store.insertBalanceSnapshot(user.getNessieCheckingAccountId(), Instant.now(), user.getId(), newBal);
+        events.publish(Topics.TRANSACTIONS_INGESTED, user.getId(),
+                new TransactionsIngested(1, LocalDate.now(), LocalDate.now(), newBal));
+        events.publish(Topics.CASHFLOW_CHANGED, user.getId(), new CashflowChanged(CashflowReason.TRANSACTIONS));
+
         DisbursementSaga.syncQuietly(sync, user);
         LoanEvent event = LoanService.event(done, month, null);
         events.publish(Topics.LOAN_FIAT_SETTLED, user.getId(), event, cause);
