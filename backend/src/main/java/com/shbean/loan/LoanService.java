@@ -16,7 +16,7 @@ import com.shbean.user.AppUser;
 
 /**
  * Customer actions and month-boundary steps of the loan lifecycle. State changes commit first; events are published
- * after commit. Settlement (money movement) happens asynchronously in {@link LoanSettlementConsumer}.
+ * after commit. Settlement (money movement) happens asynchronously in {@code com.shbean.settlement}.
  */
 @Service
 public class LoanService {
@@ -153,7 +153,7 @@ public class LoanService {
         }
     }
 
-    static LoanEvent event(Loan l, YearMonth month, String reason) {
+    public static LoanEvent event(Loan l, YearMonth month, String reason) {
         return new LoanEvent(l.getId(), l.getStatus().name(), l.getPrincipal(), l.getFee(), month.toString(), reason);
     }
 }

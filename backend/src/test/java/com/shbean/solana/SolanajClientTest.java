@@ -156,6 +156,23 @@ class SolanajClientTest {
     }
 
     @Test
+    void rateLimitedCallsAreRetriedWithBackoffThenGiveUp() throws Exception {
+        SolanajClient patient = new SolanajClient(rpc, Commitment.CONFIRMED, java.time.Duration.ofMillis(1));
+        String address = Keypair.generate().address();
+        when(rpc.getBalance(any(), eq(Commitment.CONFIRMED)))
+                .thenThrow(new RpcException("Too many requests for a specific RPC call"))
+                .thenThrow(new RpcException("HTTP 429"))
+                .thenReturn(42L);
+        assertThat(patient.getBalance(address)).isEqualTo(42L);
+
+        when(rpc.isBlockhashValid(anyString(), any(), any()))
+                .thenThrow(new RpcException("Too many requests for a specific RPC call"));
+        assertThatThrownBy(() -> patient.isBlockhashValid(BLOCKHASH)).isInstanceOf(SolanaException.class)
+                .hasMessageContaining("Too many requests");
+        verify(rpc, org.mockito.Mockito.times(6)).isBlockhashValid(anyString(), any(), any());
+    }
+
+    @Test
     void statusDistinguishesUnseenPendingConfirmedFinalizedAndFailed() throws Exception {
         assertThat(statusFor(null, null)).isEqualTo(Status.NOT_FOUND);
         assertThat(statusFor("processed", null)).isEqualTo(Status.PROCESSED);

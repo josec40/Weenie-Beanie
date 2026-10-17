@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
+import org.springframework.graphql.data.method.annotation.SchemaMapping;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Controller;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Controller;
 import com.shbean.demo.DemoService;
 import com.shbean.demo.DemoService.ClockView;
 import com.shbean.loan.OfferEngine.Decision;
+import com.shbean.solana.SolanaProperties;
 import com.shbean.user.AppUser;
 import com.shbean.user.AppUserRepository;
 
@@ -32,9 +34,11 @@ public class LoanController {
     private final LoanProperties props;
     private final DemoService demo;
     private final AppUserRepository users;
+    private final SolanaProperties solana;
 
     public LoanController(LoanService loans, OfferService offerService, LoanOfferRepository offers, LoanRepository loanRepo,
-                          CreditTiers tiers, LoanProperties props, DemoService demo, AppUserRepository users) {
+                          CreditTiers tiers, LoanProperties props, DemoService demo, AppUserRepository users,
+                          SolanaProperties solana) {
         this.loans = loans;
         this.offerService = offerService;
         this.offers = offers;
@@ -43,6 +47,7 @@ public class LoanController {
         this.props = props;
         this.demo = demo;
         this.users = users;
+        this.solana = solana;
     }
 
     @QueryMapping
@@ -72,6 +77,16 @@ public class LoanController {
     @QueryMapping
     public ClockView demoClock() {
         return demo.view();
+    }
+
+    @SchemaMapping(typeName = "Loan")
+    public String disburseTxUrl(Loan loan) {
+        return loan.getSolanaDisburseSignature() == null ? null : solana.explorerTxUrl(loan.getSolanaDisburseSignature());
+    }
+
+    @SchemaMapping(typeName = "Loan")
+    public String repayTxUrl(Loan loan) {
+        return loan.getSolanaRepaySignature() == null ? null : solana.explorerTxUrl(loan.getSolanaRepaySignature());
     }
 
     @MutationMapping

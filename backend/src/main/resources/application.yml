@@ -67,7 +67,17 @@ nessie:
   api-key: ${NESSIE_API_KEY}
 
 solana:
+  # Off by default (fiat-only settlement); the dev profile turns it on.
+  enabled: ${SOLANA_ENABLED:false}
   # Hosted RPC providers put API keys in the URL; set it via the environment, never commit it.
   rpc-url: ${SOLANA_RPC_URL:https://api.devnet.solana.com}
   commitment: confirmed
   confirm-timeout: PT45S
+  cluster: ${SOLANA_CLUSTER:devnet}
+  microloan-program-id: ${SOLANA_MICROLOAN_PROGRAM_ID:7RPbrV9Ft664iLK95bYsZbNascy9wwX57Tk6UCAM4uXk}
+  reputation-program-id: ${SOLANA_REPUTATION_PROGRAM_ID:HicA6FJxaS4DTqZL5reqxHmYcXyEKBsPkJnguMUPVnsh}
+  usdc-mint: ${SOLANA_USDC_MINT:Cmg8i52JnPxSXQ67a8pYaWBgJtUoMek5oz6bgb5DuNM3}
+  bank-keypair-path: ${SOLANA_BANK_KEYPAIR:${user.home}/.config/solana/shbean-bank.json}
+  # base64 of 32 random bytes, e.g. `openssl rand -base64 32`; never commit it.
+  wallet-master-key: ${WALLET_MASTER_KEY:}
+  pool-top-up-usdc: 10000

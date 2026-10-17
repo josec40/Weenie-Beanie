@@ -79,7 +79,7 @@ class LoanLifecycleIntegrationTest {
         await().atMost(Duration.ofSeconds(30)).until(() -> status(loan) == Loan.Status.REPAID);
         verify(nessie).createWithdrawal(eq("acct-happy"),
                 eq(new CreateTransferRequest("balance", current.plusMonths(3).atEndOfMonth(), "completed",
-                        new BigDecimal("210.00"), "ShBean micro-loan repayment")));
+                        new BigDecimal("210.00"), "ShBean micro-loan repayment " + loan.getId() + " #1")));
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> assertThat(auditTypes(user.getId())).contains(
                 "loan.accepted", "loan.disbursement.requested", "loan.disbursed", "loan.fiat.settled",

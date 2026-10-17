@@ -70,6 +70,14 @@ type Loan {
     graceUntilMonth: String
     rescheduleCount: Int!
     lastFailure: String
+    "Nessie transfer ids of the fiat legs"
+    nessieDepositId: String
+    nessieWithdrawalId: String
+    "Solana transaction signatures of the escrow legs (null in fiat-only mode)"
+    solanaDisburseSignature: String
+    solanaRepaySignature: String
+    disburseTxUrl: String
+    repayTxUrl: String
     createdAt: String!
     updatedAt: String!
 }

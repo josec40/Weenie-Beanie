@@ -2,7 +2,7 @@
 
 > Single source of context for humans and AI agents. Read this first, then update the **Progress Log** and **Status** sections whenever work is completed.
 
-Last updated: 2026-10-16
+Last updated: 2026-10-17
 
 ---
 
@@ -129,7 +129,7 @@ Real KYC, real fiat on/off-ramps, mainnet, zero-knowledge proofs, partner-bank i
 - **Implemented rule (`loan.OfferEngine`, pure):** m = first projected shortfall month; D = ceil(−endingBalanceₘ); fee = 5% of principal (`app.loans.fee-rate`); n = first month in m+1..m+3 with netₙ ≥ D + fee **and** endingBalanceₙ − fee ≥ 0. Reasons when no offer: `NO_SHORTFALL`, `EXCEEDS_TIER_CAP`, `NO_REPAYMENT_MONTH`.
 - **Lifecycle (`loan.Loan`, guarded transitions, `@Version`):** `ACCEPTED → DISBURSING → ACTIVE → REPAYING → REPAID`, `REPAYING → LATE → REPAYING (retry) | DEFAULTED`. Offers: `OFFERED → ACCEPTED | DECLINED | SUPERSEDED | EXPIRED`; one open offer and one open loan per user (partial unique indexes). Accept requires `consent = true` and a linked account.
 - **Month steps (`LoanService`):** `closeMonth(C)` starts repayments due in C (and retries LATE); LATE past `grace_until_month` (first failure + 1 month) → DEFAULTED. `openMonth(M)` starts disbursements whose shortfall month is M. Accepting an offer whose shortfall month is the current month disburses immediately.
-- **Settlement (`LoanSettlementConsumer`, fiat-only until Phase 7):** `loan.disbursement.requested` → Nessie deposit (1st of month) → ACTIVE → `loan.fiat.settled` + `loan.disbursed`. `loan.repayment.requested` → safeguard (effective balance − due ≥ $25, `app.loans.min-buffer-after-repay`) → Nessie withdrawal (last day of month) → REPAID → `loan.fiat.settled` + `loan.repaid`; else LATE + `loan.fiat.failed {INSUFFICIENT_FUNDS}`. Each step re-syncs the user afterwards.
+- **Settlement (`LoanSettlementConsumer`, fiat-only until Phase 7; replaced by the `settlement` package):** `loan.disbursement.requested` → Nessie deposit (1st of month) → ACTIVE → `loan.fiat.settled` + `loan.disbursed`. `loan.repayment.requested` → safeguard (effective balance − due ≥ $25, `app.loans.min-buffer-after-repay`) → Nessie withdrawal (last day of month) → REPAID → `loan.fiat.settled` + `loan.repaid`; else LATE + `loan.fiat.failed {INSUFFICIENT_FUNDS}`. Each step re-syncs the user afterwards.
 - **Reschedule:** once, before repayment starts, repay month +1, must stay ≤ shortfall + 3. **Early repay:** ACTIVE only; repays in the current month (safeguard applies).
 - **Forecast integration:** open loans add `LOAN` lines (disbursement if not yet disbursed and in the future; repayment in repay month, or next month if LATE).
 - **DemoClock / `advanceMonth` (dev only, `app.demo.clock-enabled`):** current month = real UTC month + `demo_clock.month_offset`. Advance = post the persona's transactions for the closing month to Nessie (`DemoScenario.simulatedMonth`, relative to `demo_clock.scenario_anchor`) → sync → `closeMonth` → clock +1 → `openMonth` → `cashflow.changed` (reason CLOCK) for every linked user. Forecast, offers, loans and expense drafts all read the month from `DemoClock`.
@@ -154,8 +154,20 @@ Real KYC, real fiat on/off-ramps, mainnet, zero-knowledge proofs, partner-bank i
 
 **Phase 7 — Settlement**
 - `SolanaClient` (Anchor 8-byte discriminator + Borsh encoding), `WalletService`, `DisbursementSaga`, `RepaymentSaga`.
-- **Already in place (Phase 6):** `AnchorCodec` (encoding) and the solanaj-backed `SolanaClient` (transport). Remaining: instruction builders with account lists for `microloan`/`reputation`, `WalletService`, pool/config bootstrap (`init_pool`, `init_config`, fund pool), and the sagas.
 - Store Solana tx signature and Nessie transaction id on each loan; UI shows Explorer links.
+- **Implemented (2026-10-17):**
+  - **Switch:** `solana.enabled` (`SOLANA_ENABLED`; default **false**, **true in `dev`**). Off = fiat-only settlement (same sagas, on-chain legs skipped); all Solana beans (`WalletService`, `SolanaBank`, `LoanLedger`, `BankBootstrap`) are `@ConditionalOnProperty`.
+  - **V7:** `settlement_step (loan_id, step, status PENDING|DONE|FAILED, tx_signature, blockhash, external_id, detail, updated_at)`, PK `(loan_id, step)`; `loan.repay_attempt` (incremented by `startRepaying`, so every repayment attempt has its own steps/Nessie descriptions).
+  - **`solana` package additions:** `MicroloanProgram` (instruction builders in IDL account order + pool/vault/loan PDAs), `SplToken` (ATA derivation, create-idempotent ATA, `mintTo`, token-account amount), `AnchorCodec.fundPool`, `SolanaProperties` (+ program ids, mint, bank keypair path, wallet master key, cluster/`explorerTxUrl`, `pool-top-up-usdc`; `toString` masks URL and key). `SolanajClient` retries rate-limited RPC calls (429 / "Too many requests" / "rate limits exceeded") 5× with exponential backoff from 500 ms; `awaitConfirmation` polls every 1 s.
+  - **`wallet.WalletService`:** one custodial wallet per user (`wallet` table), secret stored as `iv(12) || AES-256-GCM(secret)` with the **user id as AAD** (a row copied to another user fails to decrypt); public key re-checked on load; created race-free (`ON CONFLICT DO NOTHING` + re-read). `WALLET_MASTER_KEY` = base64 of 32 bytes, validated at startup. Borrower wallets hold no SOL — the bank pays all fees and rent.
+  - **`settlement` package:** `SettlementSteps` (step log, each write auto-commits), `OnChainExecutor` (exactly-once on-chain step: sign → **persist signature + blockhash** → submit → confirm; on resume resolves the recorded signature and builds a new transaction only if it failed on-chain or stayed unseen until its **blockhash expired**; a program-state `alreadyDone` check is a second guard; submit errors keep the step PENDING because the node may have forwarded it), `NessieLedger` (Nessie has no idempotency keys → every transfer carries a unique description `ShBean micro-loan disbursement <loanId>` / `… repayment <loanId> #<attempt>` / `… repayment reversal <loanId> #<attempt>`, and the account is checked for it before posting), `SolanaBank` (bank keypair, `ensurePool`: `init_pool` if missing, mint + `fund_pool` 10,000 mock USDC when the vault can't cover a disbursement), `LoanLedger` (on-chain legs), `DisbursementSaga`, `RepaymentSaga`, `SettlementConsumer`, `BankBootstrap` (startup `ensurePool`, best effort).
+  - **Disbursement:** [ATA create-idempotent + `create_loan` (bank + borrower sign; borrower's SPL approve = auto-repay consent; `loan_ref` = loan UUID; months YYYYMM, repay forced > disburse) → `disburse`] → Nessie deposit (1st of month) → ACTIVE (`solana_disburse_sig`, `nessie_deposit_id`) → `loan.fiat.settled` + `loan.disbursed`.
+  - **Repayment:** existing withdrawal for this attempt? (step log or Nessie lookup) else safeguard (effective balance − due ≥ $25, else LATE `INSUFFICIENT_FUNDS`) → Nessie withdrawal (last day of month) → [on-ramp: mint mock USDC so the borrower's token account holds principal + fee (it still holds the disbursed principal, so normally only the fee) → `repay` (loan PDA pulls via delegation, bank cranks)] → REPAID (`solana_repay_sig`, `nessie_withdrawal_id`) → `loan.fiat.settled` + `loan.repaid`. The safeguard is skipped on resume once the money has moved.
+  - **Retries / compensation:** settlement listeners retry **5× every 15 s** (`app.settlement.retry-attempts` / `retry-delay-ms`; tests use 1 s), `max.poll.interval.ms=900000`, each failed attempt is logged. DLT handler: **repayment** → wait for any in-flight repay tx; if the chain shows REPAID, finish; else refund the withdrawal (Nessie deposit "… reversal …") and LATE `SETTLEMENT_FAILED` (retried next month within grace) + `loan.fiat.failed`. **Disbursement** → no automatic reversal (the escrow may have paid out): loan stays DISBURSING with `last_failure = SETTLEMENT_FAILED` + `loan.fiat.failed`; replaying the event resumes where it stopped. If compensation itself throws → `last_failure = SETTLEMENT_STUCK`.
+  - **Default:** new `loan.defaulted` consumer → `mark_default` on-chain if the loan reached the chain (no-op in fiat-only mode).
+  - **API/UI:** GraphQL `Loan` + `nessieDepositId`, `nessieWithdrawalId`, `solanaDisburseSignature`, `solanaRepaySignature`, `disburseTxUrl`, `repayTxUrl` (Explorer, `?cluster=devnet`); `LoansPanel` shows "on-chain ↗" links.
+  - **Devnet state:** pool `E4Vw…cmem` initialized and funded (10,000 mock USDC) by the first bootstrap; bank ≈ 0.49 SOL (≈ 0.005 SOL per loan: loan PDA + borrower ATA + fees).
+  - **Tests:** `MicroloanProgramTest` (PDA + ATA golden vectors — ATA checked against `spl-token address`, IDL account order/flags, SPL encodings), `OnChainExecutorTest` (8 crash/resume cases), `WalletServiceTest` (round trip, AAD binding, tamper, wrong key, key validation), `SolanajClientTest` (+ rate-limit retry), `SettlementSagaIntegrationTest` (chain-before-fiat / fiat-before-chain ordering, step log, compensation via DLT with refund, resume without double withdrawal or safeguard), `LoanLifecycleIntegrationTest` (fiat-only). Opt-in **`SettlementDevnetLiveTest`** (`SHBEAN_SOLANA_LIVE=true`): real sagas against devnet with Nessie mocked — **green in 33 s** (e.g. disburse `ijhXiePK…`, repay `4q3LjYuz…`).
 
 **Phase 8 — Credential**
 - Tiers: Tier 0 $200 → Tier 1 $500 (2 on-time) → Tier 2 $1,000 (5 on-time).
@@ -218,6 +230,11 @@ All secrets come from environment variables or a root `.env` (imported by Spring
 | `JWT_SECRET` | ≥ 32 bytes (`openssl rand -base64 48`); app refuses to start otherwise |
 | `DEMO_USER_EMAIL`, `DEMO_USER_PASSWORD` | Seeded in `dev` profile |
 | `SERVER_PORT` | Backend port, default **8090** (8080 is taken by local Jenkins) |
+| `SOLANA_ENABLED` | On-chain settlement; default `false`, `true` in the `dev` profile |
+| `SOLANA_RPC_URL` | Default public devnet (rate-limited, shared per IP); a dedicated provider URL is more reliable — it embeds an API key, so keep it in `.env` |
+| `SOLANA_BANK_KEYPAIR` | Bank authority keypair file, default `~/.config/solana/shbean-bank.json` |
+| `WALLET_MASTER_KEY` | base64 of 32 random bytes (`openssl rand -base64 32`); encrypts custodial wallets. **Losing it makes existing wallets unusable** |
+| `SOLANA_MICROLOAN_PROGRAM_ID`, `SOLANA_REPUTATION_PROGRAM_ID`, `SOLANA_USDC_MINT`, `SOLANA_CLUSTER` | Default to the devnet deployment (Phase 6) |
 
 Other properties: `nessie.sync.enabled` (default true), `nessie.sync.interval` (default `PT15M`), `nessie.sync.initial-delay` (default `PT1M`), `app.demo.seed-nessie` (default true).
 
@@ -249,7 +266,8 @@ Spring profiles: `dev` (GraphiQL, demo user seeding, Nessie "Alex" scenario seed
 | 4 Kafka backbone | **Done & verified** (Testcontainers Kafka chain test + dev: topics/groups created, startup chain produced forecast snapshot + audited events) |
 | 5 Offer engine + loan lifecycle | **Done & verified** (unit + Kafka lifecycle integration tests; dev: V6 applied, demo user correctly gets `EXCEEDS_TIER_CAP` at Tier 0). `advanceMonth` not yet exercised against live Nessie |
 | 6 Solana programs | **Done & deployed to devnet** (7/7 LiteSVM, autofixer clean, Java codec golden vector, programs + mock USDC live) |
-| 7 – 9 | Not started (Java Solana client groundwork done) |
+| 7 Settlement saga | **Done & verified on devnet** (sagas + compensation tested; live devnet E2E green; dev on Tiger: V7 applied, pool bootstrapped) |
+| 8 – 9 | Not started |
 
 ### Phase 0 verification checklist
 - [x] User: `tiger auth login`, create service, `tiger mcp install`; fill `.env`
@@ -282,6 +300,7 @@ Spring profiles: `dev` (GraphiQL, demo user seeding, Nessie "Alex" scenario seed
 | 2026-10-17 | **Phase 6 (local) done.** Installed toolchain via the official Solana installer + Homebrew `libusb` + AVM (Anchor 1.2.1). Workspace migrated 0.31.1 → 1.2.1 (workspace deps, `rust-toolchain.toml`, `[scripts] test = "cargo test"`). New `microloan` and `reputation` programs (state/error modules, events), LiteSVM tests, `scripts/devnet-deploy.sh`, `Cargo.lock` committed. Program IDs synced. Backend: `solana.AnchorCodec` + `AnchorCodecTest`. Devnet deploy blocked on faucet funding. |
 | 2026-10-17 | **Phase 6 devnet deploy done** using the user's funded wallet `Ds9FBX…dPs1` (10 SOL; ~3 SOL spent on program rent). Deploy script now takes `DEPLOYER_KEYPAIR`. Both programs verified on-chain (upgrade authority = deployer); bank keypair + mock USDC mint created. |
 | 2026-10-17 | **Java Solana client (solanaj) done.** `com.mmorrell:solanaj:1.28.0` + `solana.{SolanaClient, SolanajClient, Keypair, Base58, SolanaException, SolanaProperties}`; `application.yml` `solana.*`. Found and fixed two solanaj defects (preflight off by default; signature order with multiple signers). Backend tests: 61 run, 58 pass + 3 opt-in live devnet tests (run green separately). Rust: PDA golden vectors added (8/8). |
+| 2026-10-17 | **Phase 7 done.** V7 `settlement_step` + `loan.repay_attempt`. New `wallet.WalletService` (AES-256-GCM, user-id AAD), `solana.{MicroloanProgram, SplToken}`, `settlement.{SettlementSteps, OnChainExecutor, NessieLedger, SolanaBank, LoanLedger, DisbursementSaga, RepaymentSaga, SettlementConsumer, BankBootstrap}`; `loan.LoanSettlementConsumer` removed. Sagas: chain → Nessie on disbursement, Nessie → chain on repayment, compensation (refund + LATE) from the DLT, `mark_default` on `loan.defaulted`. Rate-limit retries in `SolanajClient` (public devnet throttled this network during testing). GraphQL/UI Explorer links. `WALLET_MASTER_KEY` generated into `.env`. Tests: 83 run, 79 pass + 4 opt-in live (both live suites green). Dev on Tiger: V7 applied, devnet pool initialized + funded with 10,000 mock USDC. |
 
 ---
 
@@ -300,7 +319,11 @@ Spring profiles: `dev` (GraphiQL, demo user seeding, Nessie "Alex" scenario seed
 - With `AI_CHAT_MODEL=google-genai` and no `GEMINI_API_KEY`, Spring AI may fail at startup; set `AI_CHAT_MODEL=none` in that case.
 - Event publishing is best-effort (no transactional outbox): if Kafka is down when a sync inserts rows, `transactions.ingested` is lost and the forecast snapshot is only refreshed on the next change/startup. Acceptable for the MVP; an outbox table would close the gap.
 - Kafka must be running for the backend (`docker compose -f infra/docker-compose.yml up -d`); without it, listeners log connection warnings and each publish blocks up to 5 s.
-- Settlement calls Nessie inside the idempotency transaction: if Nessie succeeds but the DB commit then fails, the retry would post a second deposit/withdrawal. Rare; Phase 7's saga should record the Nessie id before committing or check Nessie for an existing transfer.
+- ~~Settlement calls Nessie inside the idempotency transaction~~ — fixed in Phase 7: Nessie transfers carry unique per-loan/step descriptions and are looked up before posting; the result is recorded in `settlement_step`.
+- Settlement (Phase 7): a disbursement that exhausts retries stays DISBURSING (`last_failure = SETTLEMENT_FAILED`) and needs an operator to replay `loan.disbursement.requested` — there is no admin endpoint yet. `SETTLEMENT_STUCK` (compensation itself failed) also needs manual follow-up.
+- Settlement (Phase 7): mock USDC minted for a compensated repayment attempt stays in the custodial wallet (the next attempt reuses it). Disbursed USDC also stays in the custodial wallet until repayment (no off-ramp burn) — the on-chain side mirrors the escrow, Nessie mirrors spendable fiat.
+- Settlement (Phase 7): only one open loan per user is allowed, which matters on-chain because an SPL token account has a single delegate (a second `create_loan` would replace the first approval).
+- Public devnet RPC rate-limits per IP ("Too many requests" / "Connection rate limits exceeded" seen during testing on this network). Retries with backoff handle bursts; for demos set `SOLANA_RPC_URL` to a dedicated devnet endpoint.
 - `advanceMonth` simulates only the demo persona's transactions; user-entered recurring expenses (Nessie bills) are not auto-paid by Nessie, so they affect the forecast but not the simulated balance. Months between the scenario anchor and the real current month are never simulated if the real calendar moves on.
 - `advanceMonth` is global (moves the clock for all users) and is exposed to any authenticated user when `app.demo.clock-enabled=true` (dev profile only). Reset with `UPDATE demo_clock SET month_offset = 0` (Nessie transactions already posted stay).
 - Nessie endpoint shapes are based on the standard Nessie API (`/customers`, `/customers/{id}/accounts`, `/accounts/{id}`, `?key=`); verify with the smoke profile.

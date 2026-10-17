@@ -85,7 +85,7 @@ public interface SolanaClient {
         TxResult result = status(signature);
         while (!result.succeeded() && result.status() != Status.FAILED && System.nanoTime() < deadline) {
             try {
-                Thread.sleep(500);
+                Thread.sleep(1000);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new SolanaException("Interrupted while waiting for " + signature);

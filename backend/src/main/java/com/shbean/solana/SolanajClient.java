@@ -1,5 +1,6 @@
 package com.shbean.solana;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -31,18 +32,25 @@ public class SolanajClient implements SolanaClient {
 
     private static final int SIGNATURE_LENGTH = 64;
     private static final int MAX_RPC_RETRIES = 5;
+    private static final int RATE_LIMIT_RETRIES = 5;
 
     private final RpcApi rpc;
     private final Commitment commitment;
+    private final Duration rateLimitBackoff;
 
     @Autowired
     public SolanajClient(SolanaProperties props) {
-        this(new RpcClient(props.rpcUrl()).getApi(), commitmentOf(props.commitment()));
+        this(new RpcClient(props.rpcUrl()).getApi(), commitmentOf(props.commitment()), Duration.ofMillis(500));
     }
 
     SolanajClient(RpcApi rpc, Commitment commitment) {
+        this(rpc, commitment, Duration.ofMillis(500));
+    }
+
+    SolanajClient(RpcApi rpc, Commitment commitment, Duration rateLimitBackoff) {
         this.rpc = rpc;
         this.commitment = commitment;
+        this.rateLimitBackoff = rateLimitBackoff;
     }
 
     @Override
@@ -179,13 +187,37 @@ public class SolanajClient implements SolanaClient {
     }
 
     // RpcException text can echo node responses but never our URL or keys; other failures are reduced to their type.
-    private static <T> T call(String operation, RpcCall<T> action) {
+    // Rate-limited calls (public RPC nodes return 429) are retried with exponential backoff; resending the same signed
+    // transaction is safe because the cluster deduplicates by signature.
+    private <T> T call(String operation, RpcCall<T> action) {
+        long backoff = rateLimitBackoff.toMillis();
+        for (int attempt = 0; ; attempt++) {
+            try {
+                return action.run();
+            } catch (RpcException e) {
+                if (attempt < RATE_LIMIT_RETRIES && isRateLimited(e)) {
+                    pause(backoff);
+                    backoff *= 2;
+                    continue;
+                }
+                throw new SolanaException("Solana " + operation + " failed: " + e.getMessage());
+            } catch (RuntimeException e) {
+                throw new SolanaException("Solana " + operation + " failed: " + e.getClass().getSimpleName());
+            }
+        }
+    }
+
+    private static boolean isRateLimited(RpcException e) {
+        String message = String.valueOf(e.getMessage()).toLowerCase(Locale.ROOT);
+        return message.contains("too many requests") || message.contains("rate limit") || message.contains("429");
+    }
+
+    private static void pause(long millis) {
         try {
-            return action.run();
-        } catch (RpcException e) {
-            throw new SolanaException("Solana " + operation + " failed: " + e.getMessage());
-        } catch (RuntimeException e) {
-            throw new SolanaException("Solana " + operation + " failed: " + e.getClass().getSimpleName());
+            Thread.sleep(millis);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new SolanaException("Interrupted while backing off from the RPC rate limit");
         }
     }
 

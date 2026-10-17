@@ -24,6 +24,8 @@ const LOAN_PANEL = gql`
       graceUntilMonth
       rescheduleCount
       lastFailure
+      disburseTxUrl
+      repayTxUrl
     }
     creditProfile {
       tier
@@ -94,6 +96,8 @@ type Loan = {
   graceUntilMonth: string | null;
   rescheduleCount: number;
   lastFailure: string | null;
+  disburseTxUrl: string | null;
+  repayTxUrl: string | null;
 };
 type PanelData = {
   currentOffer: Offer | null;
@@ -115,6 +119,17 @@ const NO_OFFER_TEXT: Record<string, string> = {
 function monthLabel(ym: string) {
   const [y, m] = ym.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
+
+function TxLink({ href }: { href: string }) {
+  return (
+    <>
+      {' '}
+      <a className="small" href={href} target="_blank" rel="noopener noreferrer">
+        on-chain ↗
+      </a>
+    </>
+  );
 }
 
 export default function LoansPanel({ onChanged }: { onChanged: () => void }) {
@@ -213,10 +228,14 @@ export default function LoansPanel({ onChanged }: { onChanged: () => void }) {
                 <td>
                   {usd.format(l.principal)} <span className="muted small">+ {usd.format(l.fee)} fee</span>
                 </td>
-                <td>{monthLabel(l.disburseMonth)}</td>
+                <td>
+                  {monthLabel(l.disburseMonth)}
+                  {l.disburseTxUrl && <TxLink href={l.disburseTxUrl} />}
+                </td>
                 <td>
                   {usd.format(l.totalDue)} in {monthLabel(l.repayMonth)}
                   {l.graceUntilMonth && <span className="muted small"> (grace until {monthLabel(l.graceUntilMonth)})</span>}
+                  {l.repayTxUrl && <TxLink href={l.repayTxUrl} />}
                 </td>
                 <td className="actions">
                   {['ACCEPTED', 'DISBURSING', 'ACTIVE'].includes(l.status) && l.rescheduleCount === 0 && (

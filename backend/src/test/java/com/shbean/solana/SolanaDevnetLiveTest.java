@@ -36,7 +36,7 @@ class SolanaDevnetLiveTest {
 
     @BeforeAll
     static void connect() throws Exception {
-        client = new SolanajClient(new SolanaProperties("https://api.devnet.solana.com", "confirmed", Duration.ofSeconds(45)));
+        client = new SolanajClient(SolanaProperties.rpcOnly("https://api.devnet.solana.com", "confirmed", Duration.ofSeconds(45)));
         String path = System.getenv().getOrDefault("SHBEAN_SOLANA_KEYPAIR",
                 System.getProperty("user.home") + "/.config/solana/shbean-bank.json");
         bank = Keypair.fromJson(Files.readString(Path.of(path)));

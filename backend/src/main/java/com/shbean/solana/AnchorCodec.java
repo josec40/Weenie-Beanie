@@ -50,6 +50,10 @@ public final class AnchorCodec {
         return instructionDiscriminator(snakeCaseName);
     }
 
+    public static byte[] fundPool(long amount) {
+        return concat(instructionDiscriminator("fund_pool"), le(8).putLong(amount).array());
+    }
+
     public static byte[] recordRepayment(boolean onTime, long amount) {
         return concat(instructionDiscriminator("record_repayment"), le(1 + 8).put((byte) (onTime ? 1 : 0)).putLong(amount).array());
     }

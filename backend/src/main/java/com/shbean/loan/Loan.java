@@ -73,6 +73,9 @@ public class Loan {
     @Column(name = "last_failure")
     private String lastFailure;
 
+    @Column(name = "repay_attempt", nullable = false)
+    private short repayAttempt;
+
     @Version
     private Long version;
 
@@ -106,8 +109,14 @@ public class Loan {
     }
 
     public void disbursed(String nessieDepositId) {
+        disbursed(nessieDepositId, null);
+    }
+
+    public void disbursed(String nessieDepositId, String solanaSignature) {
         transition(Status.DISBURSING, Status.ACTIVE);
         this.nessieDepositId = nessieDepositId;
+        this.solanaDisburseSig = solanaSignature;
+        this.lastFailure = null;
     }
 
     public void startRepaying() {
@@ -115,14 +124,26 @@ public class Loan {
             throw new IllegalStateException("Cannot start repayment from " + status);
         }
         status = Status.REPAYING;
+        repayAttempt++;
         touch();
     }
 
     public void repaid(String nessieWithdrawalId) {
+        repaid(nessieWithdrawalId, null);
+    }
+
+    public void repaid(String nessieWithdrawalId, String solanaSignature) {
         transition(Status.REPAYING, Status.REPAID);
         this.nessieWithdrawalId = nessieWithdrawalId;
+        this.solanaRepaySig = solanaSignature;
         this.repaidAt = Instant.now();
         this.lastFailure = null;
+    }
+
+    /** Records a settlement problem that needs attention without changing the lifecycle state. */
+    public void settlementProblem(String reason) {
+        this.lastFailure = reason;
+        touch();
     }
 
     /** Repayment failed a safeguard; the grace window starts at the first failure and is not extended by retries. */
@@ -230,6 +251,18 @@ public class Loan {
 
     public String getNessieWithdrawalId() {
         return nessieWithdrawalId;
+    }
+
+    public String getSolanaDisburseSignature() {
+        return solanaDisburseSig;
+    }
+
+    public String getSolanaRepaySignature() {
+        return solanaRepaySig;
+    }
+
+    public int getRepayAttempt() {
+        return repayAttempt;
     }
 
     public Instant getCreatedAt() {
