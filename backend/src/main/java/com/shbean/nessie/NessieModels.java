@@ -1,12 +1,12 @@
 package com.shbean.nessie;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public final class NessieModels {
 
@@ -104,5 +104,18 @@ public final class NessieModels {
     }
 
     public record CreateMerchantRequest(String name, String category, Address address, Geocode geocode) {
+    }
+
+    public record BillRequest(
+            String status,
+            String payee,
+            String nickname,
+            @JsonProperty("payment_date") LocalDate paymentDate,
+            @JsonProperty("recurring_date") int recurringDate,
+            @JsonProperty("payment_amount") BigDecimal paymentAmount) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Bill(@JsonProperty("_id") String id, String payee, String status) {
     }
 }

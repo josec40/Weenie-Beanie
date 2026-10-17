@@ -1,10 +1,19 @@
 type Query {
     me: User
+    "Projection for the next `months` calendar months (1-24), starting after the current month."
+    forecast(months: Int = 12): Forecast
+    "Posted transactions between two dates (YYYY-MM-DD, inclusive, max 2 years)."
+    transactions(from: String!, to: String!): [Transaction!]!
+    recurringExpenses: [RecurringExpense!]!
 }
 
 type Mutation {
     "Pull new transactions from Nessie for the current user."
     syncTransactions: SyncResult!
+    createRecurringExpense(input: RecurringExpenseInput!): RecurringExpense!
+    "Returns null if the expense does not exist or belongs to another user."
+    updateRecurringExpense(id: ID!, input: RecurringExpenseInput!): RecurringExpense
+    deleteRecurringExpense(id: ID!): Boolean!
 }
 
 type SyncResult {
@@ -17,4 +26,79 @@ type User {
     email: String!
     nessieCustomerId: String
     nessieCheckingAccountId: String
+}
+
+type Forecast {
+    "YYYY-MM"
+    currentMonth: String!
+    startingBalance: Float!
+    "ISO-8601 time of the balance snapshot the projection starts from; null if never synced."
+    balanceAsOf: String
+    discretionaryMonthly: Float!
+    months: [ForecastMonth!]!
+}
+
+type ForecastMonth {
+    "YYYY-MM"
+    month: String!
+    income: Float!
+    expenses: Float!
+    net: Float!
+    endingBalance: Float!
+    "Ending balance is below zero."
+    shortfall: Boolean!
+    lines: [ForecastLine!]!
+}
+
+type ForecastLine {
+    label: String!
+    category: String!
+    "Signed: inflow > 0, outflow < 0."
+    amount: Float!
+    source: ForecastSource!
+}
+
+enum ForecastSource {
+    MONTHLY
+    BIWEEKLY
+    WEEKLY
+    ANNUAL
+    RECURRING_EXPENSE
+    DISCRETIONARY
+}
+
+type Transaction {
+    id: ID!
+    "YYYY-MM-DD"
+    date: String!
+    kind: String!
+    "Signed: inflow > 0, outflow < 0."
+    amount: Float!
+    category: String!
+    description: String
+}
+
+type RecurringExpense {
+    id: ID!
+    name: String!
+    amount: Float!
+    category: String!
+    dayOfMonth: Int!
+    "YYYY-MM"
+    startMonth: String!
+    "Null means open-ended."
+    durationMonths: Int
+    "Last month with a payment (YYYY-MM); null if open-ended."
+    endMonth: String
+}
+
+input RecurringExpenseInput {
+    name: String!
+    amount: Float!
+    category: String!
+    "1-28"
+    dayOfMonth: Int!
+    "YYYY-MM"
+    startMonth: String!
+    durationMonths: Int
 }

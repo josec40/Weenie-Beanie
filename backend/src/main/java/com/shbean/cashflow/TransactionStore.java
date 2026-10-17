@@ -1,17 +1,18 @@
 package com.shbean.cashflow;
 
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Repository;
-
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Repository;
 
 /** JDBC access to the TimescaleDB hypertables and the monthly_cashflow continuous aggregate. */
 @Repository
@@ -24,6 +25,9 @@ public class TransactionStore {
 
     public record MonthlyCashflow(LocalDate month, String category, BigDecimal income, BigDecimal spend,
                                   BigDecimal net, long txnCount) {
+    }
+
+    public record BalanceSnapshot(BigDecimal balance, Instant capturedAt) {
     }
 
     private static final String INSERT_TXN = """
@@ -39,12 +43,13 @@ public class TransactionStore {
         this.jdbc = jdbc;
     }
 
-    /** Returns the number of rows actually inserted (duplicates by Nessie id are skipped). */
-    public int insertAll(List<TransactionRow> rows) {
+    /** Returns only the rows that were actually inserted (duplicates by Nessie id are skipped). */
+    public List<TransactionRow> insertNew(List<TransactionRow> rows) {
         if (rows.isEmpty()) {
-            return 0;
+            return List.of();
         }
-        int[][] counts = jdbc.batchUpdate(INSERT_TXN, rows, 200, (ps, r) -> {
+        int batchSize = 200;
+        int[][] counts = jdbc.batchUpdate(INSERT_TXN, rows, batchSize, (ps, r) -> {
             ps.setString(1, r.id());
             ps.setTimestamp(2, Timestamp.from(r.occurredAt()));
             ps.setObject(3, r.userId());
@@ -56,7 +61,49 @@ public class TransactionStore {
             ps.setString(9, r.merchantId());
             ps.setString(10, r.status());
         });
-        return Arrays.stream(counts).flatMapToInt(Arrays::stream).filter(c -> c > 0).sum();
+        List<TransactionRow> inserted = new ArrayList<>();
+        for (int b = 0; b < counts.length; b++) {
+            for (int i = 0; i < counts[b].length; i++) {
+                if (counts[b][i] > 0) {
+                    inserted.add(rows.get(b * batchSize + i));
+                }
+            }
+        }
+        return inserted;
+    }
+
+    public Optional<BalanceSnapshot> latestBalance(String accountId) {
+        return jdbc.query("""
+                        SELECT balance, captured_at FROM balance_snapshot
+                        WHERE account_id = ? ORDER BY captured_at DESC LIMIT 1
+                        """,
+                (rs, i) -> new BalanceSnapshot(rs.getBigDecimal("balance"), rs.getTimestamp("captured_at").toInstant()),
+                accountId).stream().findFirst();
+    }
+
+    public List<TransactionRow> transactions(UUID userId, LocalDate fromInclusive, LocalDate toExclusive) {
+        return jdbc.query("""
+                        SELECT id, occurred_at, user_id, account_id, kind, amount, category, description, merchant_id, status
+                        FROM account_transaction
+                        WHERE user_id = ? AND occurred_at >= ? AND occurred_at < ?
+                        ORDER BY occurred_at, id
+                        """,
+                (rs, i) -> new TransactionRow(
+                        rs.getString("id"),
+                        rs.getTimestamp("occurred_at").toInstant(),
+                        rs.getObject("user_id", UUID.class),
+                        rs.getString("account_id"),
+                        rs.getString("kind"),
+                        rs.getBigDecimal("amount"),
+                        rs.getString("category"),
+                        rs.getString("description"),
+                        rs.getString("merchant_id"),
+                        rs.getString("status")),
+                userId, utc(fromInclusive), utc(toExclusive));
+    }
+
+    private static OffsetDateTime utc(LocalDate date) {
+        return date.atStartOfDay().atOffset(ZoneOffset.UTC);
     }
 
     public void insertBalanceSnapshot(String accountId, Instant capturedAt, UUID userId, BigDecimal balance) {

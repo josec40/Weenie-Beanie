@@ -1,14 +1,19 @@
 package com.shbean.cashflow;
 
-import com.shbean.cashflow.TransactionStore.MonthlyCashflow;
-import com.shbean.nessie.NessieClient;
-import com.shbean.nessie.NessieModels.Account;
-import com.shbean.nessie.NessieModels.Merchant;
-import com.shbean.nessie.NessieModels.Purchase;
-import com.shbean.nessie.NessieModels.Transfer;
-import com.shbean.user.AppUser;
-import com.shbean.user.AppUserRepository;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.ZoneOffset;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import org.junit.jupiter.api.Test;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -19,16 +24,15 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.tuple;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import com.shbean.cashflow.TransactionStore.MonthlyCashflow;
+import com.shbean.forecast.ForecastService;
+import com.shbean.nessie.NessieClient;
+import com.shbean.nessie.NessieModels.Account;
+import com.shbean.nessie.NessieModels.Merchant;
+import com.shbean.nessie.NessieModels.Purchase;
+import com.shbean.nessie.NessieModels.Transfer;
+import com.shbean.user.AppUser;
+import com.shbean.user.AppUserRepository;
 
 @Testcontainers
 @SpringBootTest(properties = {
@@ -49,6 +53,8 @@ class NessieSyncIntegrationTest {
     @Autowired TransactionStore store;
     @Autowired AppUserRepository users;
     @Autowired JdbcTemplate jdbc;
+    @Autowired RecurringExpenseService recurring;
+    @Autowired ForecastService forecasts;
 
     @Test
     void ingestsDeduplicatesAndAggregatesMonthly() {
@@ -89,5 +95,47 @@ class NessieSyncIntegrationTest {
         Integer audits = jdbc.queryForObject("SELECT count(*) FROM audit_event WHERE user_id = ? AND type = 'NESSIE_SYNCED'", Integer.class, user.getId());
         assertThat(snapshots).isEqualTo(2);
         assertThat(audits).isEqualTo(2);
+        assertThat(store.latestBalance("acct-1")).get().extracting(b -> b.balance()).isEqualTo(new BigDecimal("300.00"));
+
+        // Nessie's balance never moves; newly posted transactions are added to the last snapshot.
+        when(nessie.listDeposits("acct-1")).thenReturn(List.of(
+                new Transfer("d1", LocalDate.of(2026, 1, 1), "completed", "balance", new BigDecimal("1850"), "Payroll"),
+                new Transfer("d4", LocalDate.of(2026, 3, 1), "completed", "balance", new BigDecimal("500"), "Loan disbursement")));
+        when(nessie.listPurchases("acct-1")).thenReturn(List.of(
+                new Purchase("p3", "m-rent", LocalDate.of(2026, 3, 2), "completed", "balance", new BigDecimal("120"), "Rent fee")));
+
+        assertThat(sync.sync(user).inserted()).isEqualTo(2);
+        assertThat(store.latestBalance("acct-1")).get().extracting(b -> b.balance()).isEqualTo(new BigDecimal("680.00"));
+        verify(nessie, times(1)).getAccount("acct-1");
+    }
+
+    @Test
+    void recurringExpensesAreScopedToOwnerAndFeedTheForecast() {
+        AppUser owner = users.save(new AppUser("owner@demo.local", "x"));
+        AppUser other = users.save(new AppUser("other@demo.local", "x"));
+        YearMonth next = YearMonth.now(ZoneOffset.UTC).plusMonths(1);
+
+        RecurringExpense netflix = recurring.create(owner,
+                new RecurringExpenseService.Input(" Netflix ", new BigDecimal("15.49"), "Entertainment", 18, next.toString(), 2));
+
+        assertThat(netflix.getName()).isEqualTo("Netflix");
+        assertThat(netflix.getEndMonth()).isEqualTo(next.plusMonths(1));
+        assertThat(recurring.list(other.getId())).isEmpty();
+        assertThat(recurring.delete(other.getId(), netflix.getId())).isFalse();
+        assertThat(recurring.update(other.getId(), netflix.getId(),
+                new RecurringExpenseService.Input("x", BigDecimal.ONE, "x", 1, next.toString(), null))).isEmpty();
+        assertThatThrownBy(() -> recurring.create(owner,
+                new RecurringExpenseService.Input("Bad", new BigDecimal("-5"), "x", 1, next.toString(), null)))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        var forecast = forecasts.forecast(owner, 4);
+        assertThat(forecast.balanceAsOf()).isNull();
+        assertThat(forecast.months()).extracting(m -> m.expenses())
+                .containsExactly(new BigDecimal("15.49"), new BigDecimal("15.49"), new BigDecimal("0.00"), new BigDecimal("0.00"));
+        assertThat(forecast.months().get(1).endingBalance()).isEqualByComparingTo("-30.98");
+        assertThat(forecast.months().get(1).shortfall()).isTrue();
+
+        assertThat(recurring.delete(owner.getId(), netflix.getId())).isTrue();
+        assertThat(recurring.list(owner.getId())).isEmpty();
     }
 }

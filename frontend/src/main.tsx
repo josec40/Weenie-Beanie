@@ -5,6 +5,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { apolloClient } from './apollo';
 import { getToken } from './auth';
 import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
 import Me from './pages/Me';
 import './index.css';
 
@@ -20,6 +21,14 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/login" element={<Login />} />
           <Route
             path="/"
+            element={
+              <RequireAuth>
+                <Dashboard />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/me"
             element={
               <RequireAuth>
                 <Me />

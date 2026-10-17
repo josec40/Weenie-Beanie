@@ -109,6 +109,7 @@ Real KYC, real fiat on/off-ramps, mainnet, zero-knowledge proofs, partner-bank i
 **Phase 2 — Forecast**
 - GraphQL: `forecast(months)`, `transactions(range)`, `recurringExpenses`; CRUD mutations for recurring expenses.
 - Tests: expenses ending mid-horizon, biweekly income, empty history.
+- **Implemented rules (`forecast.ForecastEngine`, pure/deterministic):** history = last 24 complete months, grouped by `kind:merchantId` (or normalized description). Per group: ANNUAL if ≥2 occurrences and all gaps 330–400 days; WEEKLY / BIWEEKLY if ≥3 occurrences and recent gaps 6–8 / 13–15 days (stepped by date); MONTHLY if present in ≥4 of the last 6 months and in one of the last 2 (amount = median monthly sum); stopped monthly series are recognized but not projected. Everything else = "everyday spending" = median over the last 6 months of (CAGG monthly net − patterned items). User recurring expenses apply in their active months and replace a detected outflow in the same category within ±10%. Month 1 = month after the current month (rest of current month not modeled). `shortfall` = projected ending balance < 0. Starting balance = latest `balance_snapshot`.
 
 **Phase 3 — AI (Gemini via Spring AI)**
 - Structured output for expense parsing; explanations cached per forecast version; deterministic fallback text.
@@ -216,7 +217,8 @@ Spring profiles: `dev` (GraphiQL, demo user seeding, Nessie "Alex" scenario seed
 |---|---|
 | 0 Foundations | **Verified** except frontend login check and `anchor build` (Anchor CLI not installed) |
 | 1 Nessie ingestion + time-series | **Done & verified on Tiger** (V2/V3 applied, 364 demo txns seeded + synced, dedupe + CAGG verified) |
-| 2 – 9 | Not started |
+| 2 Forecast engine + dashboard | **Done & verified on Tiger data** (demo forecast: shortfall Feb–Mar 2027 = months +4/+5, surplus Apr 2027 = month +6). Dashboard UI built; visual check pending |
+| 3 – 9 | Not started |
 
 ### Phase 0 verification checklist
 - [x] User: `tiger auth login`, create service, `tiger mcp install`; fill `.env`
@@ -242,17 +244,21 @@ Spring profiles: `dev` (GraphiQL, demo user seeding, Nessie "Alex" scenario seed
 | 2026-10-17 | Nessie smoke verified (customer + account round-trip, key absent from logs). Switched Nessie to HTTPS. `NessieClient` errors now include the root cause with the API key redacted. |
 | 2026-10-17 | Backend port moved to **8090** (`SERVER_PORT`, default 8090) because local Jenkins occupies 8080; Vite proxy updated. |
 | 2026-10-17 | **Phase 1 done.** V2 (hypertables `account_transaction`, `balance_snapshot`, `audit_event` + regular tables `recurring_expense`, `forecast_snapshot`, `loan_offer`, `loan`, `wallet`, `credential`), V3 (`monthly_cashflow` CAGG per user/month/category, `WITH NO DATA` + hourly policy, real-time enabled). `NessieClient` gained deposits/withdrawals/purchases/merchants. `cashflow.NessieSyncService` (poll every 15 min + GraphQL `syncTransactions` mutation; JDBC batch insert `ON CONFLICT DO NOTHING`; refreshes CAGG for touched months; balance snapshot + audit event per sync). `demo.DemoScenario` (20 months, deterministic) + `demo.DemoNessieSeeder` (dev profile, 8-way parallel posting, links user only after full seed). Tests: 12/12 green. On Tiger: 364 txns seeded, re-sync inserted 0; CAGG shows insurance months 2025-02/2026-02 (net ≈ −1,100) and bonus months 2025-04/2026-04 (net ≈ +1,400); steady months ≈ +70..+200. |
+| 2026-10-17 | **Phase 2 done.** Effective balance decision implemented: first sync anchors to Nessie's balance; each later sync stores `latest snapshot + sum(newly inserted transactions)` (`TransactionStore.insertNew` returns the inserted rows). New: `forecast.ForecastEngine` / `ForecastService` / `ForecastController`; `cashflow.RecurringExpense` (JPA) + `RecurringExpenseService` (validation, owner-scoped update/delete, mirrored to Nessie bills best-effort) + `CashflowController` (`transactions`, `recurringExpenses`, create/update/delete mutations); `GraphQlValidationErrors` maps `IllegalArgumentException` → BAD_REQUEST. `NessieClient` gained create/update/delete bill (verified live: PUT 202, DELETE 200). Frontend: `pages/Dashboard.tsx` at `/` (Recharts red/green ending-balance bars, month table + line breakdown, recurring-expense list/add/remove, Sync button); profile moved to `/me`. Tests: 20/20 green. Live forecast for demo user: +$152/month steady, Feb 2027 −$342 (shortfall), Mar 2027 −$190 (shortfall), Apr 2027 +$1,352 net. |
 
 ---
 
 ## 11. Known Issues / Open Questions
 
 - **Nessie base URL is now `https://api.nessieisreal.com`** (plain HTTP is unreachable). Verified via smoke profile.
-- **Nessie does not update account balances** when deposits/withdrawals/purchases post, and it **truncates amounts to whole dollars**. The demo account is created with its *current* balance ($300). Phase 2/5/7 must not rely on Nessie's balance moving: derive effective balance = latest `balance_snapshot` (or seed balance) + sum of transactions after it. Decide this at the start of Phase 2.
+- **Nessie does not update account balances** when deposits/withdrawals/purchases post, and it **truncates amounts to whole dollars**. The demo account is created with its *current* balance ($300). **Decision (2026-10-17):** effective balance = last recorded `balance_snapshot` + everything that posted since; Nessie's balance is read only once, to anchor the first snapshot. Phases 5/7 (safeguards, settlement) must use `TransactionStore.latestBalance`, never Nessie's account balance.
+- Balance carry-forward relies on per-row batch update counts; do not enable pgjdbc `reWriteBatchedInserts` (it returns SUCCESS_NO_INFO and newly posted transactions would not be added to the balance).
 - Nessie merchant `category` is a string in the live API (arrays rejected on create); the model accepts both.
 - Demo scenario months are relative to the month the seeder ran (UTC): history = current−20 .. current−1; shortfall = month +4 (annual insurance), surplus = month +6 (annual bonus). Reseeding requires clearing the user's Nessie link (`nessie_customer_id`, `nessie_checking_account_id`) and their `account_transaction` rows.
 - `monthly_cashflow` buckets are UTC; render months in UTC to avoid off-by-one display.
-- Frontend login has not been verified yet (Phase 0 checklist).
+- Frontend login + dashboard have not been visually verified yet (Phase 0 checklist / Phase 2).
+- `.env.example` is deleted in the working tree (still in git); restore it so new contributors know which variables to set.
+- Frontend bundle is ~865 kB (Recharts); code-split later if needed.
 - Nessie endpoint shapes are based on the standard Nessie API (`/customers`, `/customers/{id}/accounts`, `/accounts/{id}`, `?key=`); verify with the smoke profile.
 - Anchor programs share a placeholder program ID until `anchor keys sync`.
 - Dependency versions were pinned without network verification (Spring Boot 3.5.6, Anchor 0.31.1, Vite 6, React 19, Apollo Client 3.13); bump if newer stable versions are desired.

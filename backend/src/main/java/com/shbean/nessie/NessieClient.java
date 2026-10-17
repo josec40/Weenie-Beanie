@@ -12,6 +12,8 @@ import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.util.UriBuilder;
 
 import com.shbean.nessie.NessieModels.Account;
+import com.shbean.nessie.NessieModels.Bill;
+import com.shbean.nessie.NessieModels.BillRequest;
 import com.shbean.nessie.NessieModels.CreateAccountRequest;
 import com.shbean.nessie.NessieModels.CreateCustomerRequest;
 import com.shbean.nessie.NessieModels.CreateMerchantRequest;
@@ -104,6 +106,25 @@ public class NessieClient {
                 .retrieve()
                 .body(new ParameterizedTypeReference<CreateResponse<Merchant>>() {})
                 .objectCreated());
+    }
+
+    public Bill createBill(String accountId, BillRequest request) {
+        return create("createBill", "/accounts/{id}/bills", accountId, request, new ParameterizedTypeReference<>() {});
+    }
+
+    public void updateBill(String billId, BillRequest request) {
+        call("updateBill", () -> rest.put()
+                .uri(b -> withKey(b, "/bills/{id}", billId))
+                .body(request)
+                .retrieve()
+                .toBodilessEntity());
+    }
+
+    public void deleteBill(String billId) {
+        call("deleteBill", () -> rest.delete()
+                .uri(b -> withKey(b, "/bills/{id}", billId))
+                .retrieve()
+                .toBodilessEntity());
     }
 
     private <T> List<T> list(String operation, String path, String id, ParameterizedTypeReference<List<T>> type) {

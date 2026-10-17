@@ -1,9 +1,5 @@
 package com.shbean.demo;
 
-import com.shbean.demo.DemoScenario.Kind;
-import com.shbean.demo.DemoScenario.PlannedTxn;
-import org.junit.jupiter.api.Test;
-
 import java.math.BigDecimal;
 import java.time.YearMonth;
 import java.util.List;
@@ -11,6 +7,10 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
+
+import com.shbean.demo.DemoScenario.Kind;
+import com.shbean.demo.DemoScenario.PlannedTxn;
 
 class DemoScenarioTest {
 

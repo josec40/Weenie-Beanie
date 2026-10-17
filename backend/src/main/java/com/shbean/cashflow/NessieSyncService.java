@@ -1,18 +1,5 @@
 package com.shbean.cashflow;
 
-import com.shbean.cashflow.TransactionStore.TransactionRow;
-import com.shbean.nessie.NessieClient;
-import com.shbean.nessie.NessieException;
-import com.shbean.nessie.NessieModels.Account;
-import com.shbean.nessie.NessieModels.Merchant;
-import com.shbean.nessie.NessieModels.Purchase;
-import com.shbean.nessie.NessieModels.Transfer;
-import com.shbean.user.AppUser;
-import com.shbean.user.AppUserRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -23,6 +10,19 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import com.shbean.cashflow.TransactionStore.TransactionRow;
+import com.shbean.nessie.NessieClient;
+import com.shbean.nessie.NessieException;
+import com.shbean.nessie.NessieModels.Merchant;
+import com.shbean.nessie.NessieModels.Purchase;
+import com.shbean.nessie.NessieModels.Transfer;
+import com.shbean.user.AppUser;
+import com.shbean.user.AppUserRepository;
 
 /** Polls Nessie and stores transactions in TimescaleDB, deduplicated by Nessie _id. */
 @Service
@@ -65,7 +65,6 @@ public class NessieSyncService {
             return SyncResult.NONE;
         }
 
-        Account account = nessie.getAccount(accountId);
         List<TransactionRow> rows = new ArrayList<>();
         for (Transfer d : nessie.listDeposits(accountId)) {
             if (!cancelled(d.status())) {
@@ -84,14 +83,23 @@ public class NessieSyncService {
             }
         }
 
-        int inserted = store.insertAll(rows);
-        store.insertBalanceSnapshot(accountId, Instant.now(), user.getId(), account.balance());
-        if (inserted > 0) {
-            refreshAggregate(rows);
+        List<TransactionRow> inserted = store.insertNew(rows);
+        BigDecimal balance = nextBalance(accountId, inserted);
+        store.insertBalanceSnapshot(accountId, Instant.now(), user.getId(), balance);
+        if (!inserted.isEmpty()) {
+            refreshAggregate(inserted);
         }
-        store.audit(user.getId(), "NESSIE_SYNCED", "{\"fetched\":%d,\"inserted\":%d}".formatted(rows.size(), inserted));
-        log.info("Nessie sync for user {}: fetched {}, inserted {}", user.getId(), rows.size(), inserted);
-        return new SyncResult(rows.size(), inserted);
+        store.audit(user.getId(), "NESSIE_SYNCED", "{\"fetched\":%d,\"inserted\":%d}".formatted(rows.size(), inserted.size()));
+        log.info("Nessie sync for user {}: fetched {}, inserted {}", user.getId(), rows.size(), inserted.size());
+        return new SyncResult(rows.size(), inserted.size());
+    }
+
+    // Nessie never moves account balances, so the first sync anchors to Nessie's balance
+    // and later syncs carry the last snapshot forward by whatever newly posted.
+    private BigDecimal nextBalance(String accountId, List<TransactionRow> inserted) {
+        return store.latestBalance(accountId)
+                .map(last -> inserted.stream().map(TransactionRow::amount).reduce(last.balance(), BigDecimal::add))
+                .orElseGet(() -> nessie.getAccount(accountId).balance());
     }
 
     private void refreshAggregate(List<TransactionRow> rows) {

@@ -1,5 +1,25 @@
 package com.shbean.demo;
 
+import java.time.YearMonth;
+import java.time.ZoneOffset;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.annotation.Profile;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+
 import com.shbean.cashflow.NessieSyncService;
 import com.shbean.demo.DemoScenario.MerchantSpec;
 import com.shbean.demo.DemoScenario.PlannedTxn;
@@ -16,25 +36,6 @@ import com.shbean.nessie.NessieModels.Geocode;
 import com.shbean.user.AppUser;
 import com.shbean.user.AppUserRepository;
 import com.shbean.user.DemoProperties;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationRunner;
-import org.springframework.context.annotation.Profile;
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
-
-import java.time.YearMonth;
-import java.time.ZoneOffset;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 /** Creates the "Alex" scenario in Nessie for the demo user (once), then runs an initial sync. */
 @Component

@@ -58,3 +58,135 @@ dt {
 dd {
   margin: 0 0 0.5rem;
 }
+
+.dashboard {
+  width: min(1000px, 95vw);
+  padding: 2rem 0;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.dash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.dash-header h1 {
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.panel {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
+.panel h2 {
+  font-size: 1.1rem;
+  margin: 1.25rem 0 0.75rem;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.stats > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.stats strong {
+  font-size: 1.6rem;
+}
+
+.chart {
+  width: 100%;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.75rem;
+  font-size: 0.95rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid #eef;
+}
+
+tbody tr {
+  cursor: pointer;
+}
+
+.row-neg {
+  background: #fdecea;
+}
+
+.row-selected {
+  outline: 2px solid #004879;
+}
+
+.breakdown ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.breakdown li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.35rem 0;
+  border-bottom: 1px dashed #eef;
+}
+
+.expense-form {
+  margin-top: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  align-items: end;
+}
+
+label.inline {
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+button.secondary {
+  background: #e6ecf3;
+  color: #004879;
+}
+
+button.link {
+  background: none;
+  color: #c0392b;
+  padding: 0;
+}
+
+.muted {
+  color: #667;
+  margin: 0;
+}
+
+.small {
+  font-size: 0.8rem;
+}
+
+.neg {
+  color: #c0392b;
+}
+
+.pos {
+  color: #1e8449;
+}
