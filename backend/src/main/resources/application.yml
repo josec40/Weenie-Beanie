@@ -15,8 +15,15 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+    # Tiger Cloud pre-installs extension objects in public; baseline at 0 so V1 still runs.
+    baseline-on-migrate: true
+    baseline-version: 0
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+
+server:
+  # 8080 is commonly taken (e.g. local Jenkins); keep in sync with frontend/vite.config.ts.
+  port: ${SERVER_PORT:8090}
 
 management:
   endpoints:
@@ -33,5 +40,5 @@ app:
     password: ${DEMO_USER_PASSWORD:}
 
 nessie:
-  base-url: ${NESSIE_BASE_URL:http://api.nessieisreal.com}
+  base-url: ${NESSIE_BASE_URL:https://api.nessieisreal.com}
   api-key: ${NESSIE_API_KEY}

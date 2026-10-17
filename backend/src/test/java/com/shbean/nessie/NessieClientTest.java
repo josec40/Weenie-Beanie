@@ -49,6 +49,18 @@ class NessieClientTest {
     }
 
     @Test
+    void merchantCategoryAcceptsStringOrArray() {
+        server.expect(requestTo("http://nessie.test/merchants/m1?key=" + KEY))
+                .andRespond(withSuccess("{\"_id\":\"m1\",\"name\":\"FreshMart\",\"category\":\"Groceries\"}", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("http://nessie.test/merchants/m2?key=" + KEY))
+                .andRespond(withSuccess("{\"_id\":\"m2\",\"name\":\"Cafe\",\"category\":[\"Dining\",\"Food\"]}", MediaType.APPLICATION_JSON));
+
+        assertThat(client.getMerchant("m1").category()).containsExactly("Groceries");
+        assertThat(client.getMerchant("m2").category()).containsExactly("Dining", "Food");
+        server.verify();
+    }
+
+    @Test
     void httpErrorDoesNotLeakKey() {
         server.expect(requestTo("http://nessie.test/accounts/abc?key=" + KEY)).andRespond(withServerError());
 

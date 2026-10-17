@@ -1,9 +1,5 @@
 package com.shbean.auth;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.shbean.user.AppUser;
-import com.shbean.user.AppUserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,16 +11,19 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.shbean.user.AppUser;
+import com.shbean.user.AppUserRepository;
 
 @Testcontainers
 @SpringBootTest(properties = {
@@ -69,12 +68,15 @@ class AuthFlowIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + token.get("accessToken").asText())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ME_QUERY))
-                .andExpect(request().asyncStarted())
                 .andReturn();
 
-        mvc.perform(asyncDispatch(pending))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.me.email").value(EMAIL));
+        // Spring GraphQL completes synchronously when the result is already available.
+        MvcResult result = pending.getRequest().isAsyncStarted()
+                ? mvc.perform(asyncDispatch(pending)).andReturn()
+                : pending;
+
+        status().isOk().match(result);
+        jsonPath("$.data.me.email").value(EMAIL).match(result);
     }
 
     @Test

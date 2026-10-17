@@ -1,0 +1,139 @@
+package com.shbean.cashflow;
+
+import com.shbean.cashflow.TransactionStore.TransactionRow;
+import com.shbean.nessie.NessieClient;
+import com.shbean.nessie.NessieException;
+import com.shbean.nessie.NessieModels.Account;
+import com.shbean.nessie.NessieModels.Merchant;
+import com.shbean.nessie.NessieModels.Purchase;
+import com.shbean.nessie.NessieModels.Transfer;
+import com.shbean.user.AppUser;
+import com.shbean.user.AppUserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+/** Polls Nessie and stores transactions in TimescaleDB, deduplicated by Nessie _id. */
+@Service
+public class NessieSyncService {
+
+    public record SyncResult(int fetched, int inserted) {
+        static final SyncResult NONE = new SyncResult(0, 0);
+    }
+
+    static final String INCOME = "Income";
+    static final String CASH = "Cash";
+    static final String UNCATEGORIZED = "Uncategorized";
+
+    private static final Logger log = LoggerFactory.getLogger(NessieSyncService.class);
+
+    private final NessieClient nessie;
+    private final TransactionStore store;
+    private final AppUserRepository users;
+    private final Map<String, String> merchantCategories = new ConcurrentHashMap<>();
+
+    public NessieSyncService(NessieClient nessie, TransactionStore store, AppUserRepository users) {
+        this.nessie = nessie;
+        this.store = store;
+        this.users = users;
+    }
+
+    public void syncAll() {
+        for (AppUser user : users.findByNessieCheckingAccountIdIsNotNull()) {
+            try {
+                sync(user);
+            } catch (RuntimeException e) {
+                log.warn("Nessie sync failed for user {}: {}", user.getId(), e.getMessage());
+            }
+        }
+    }
+
+    public SyncResult sync(AppUser user) {
+        String accountId = user.getNessieCheckingAccountId();
+        if (accountId == null) {
+            return SyncResult.NONE;
+        }
+
+        Account account = nessie.getAccount(accountId);
+        List<TransactionRow> rows = new ArrayList<>();
+        for (Transfer d : nessie.listDeposits(accountId)) {
+            if (!cancelled(d.status())) {
+                rows.add(row(d.id(), d.transactionDate(), user, accountId, "DEPOSIT", d.amount().abs(), INCOME, d.description(), null, d.status()));
+            }
+        }
+        for (Transfer w : nessie.listWithdrawals(accountId)) {
+            if (!cancelled(w.status())) {
+                rows.add(row(w.id(), w.transactionDate(), user, accountId, "WITHDRAWAL", w.amount().abs().negate(), CASH, w.description(), null, w.status()));
+            }
+        }
+        for (Purchase p : nessie.listPurchases(accountId)) {
+            if (!cancelled(p.status())) {
+                rows.add(row(p.id(), p.purchaseDate(), user, accountId, "PURCHASE", p.amount().abs().negate(),
+                        categoryOf(p.merchantId()), p.description(), p.merchantId(), p.status()));
+            }
+        }
+
+        int inserted = store.insertAll(rows);
+        store.insertBalanceSnapshot(accountId, Instant.now(), user.getId(), account.balance());
+        if (inserted > 0) {
+            refreshAggregate(rows);
+        }
+        store.audit(user.getId(), "NESSIE_SYNCED", "{\"fetched\":%d,\"inserted\":%d}".formatted(rows.size(), inserted));
+        log.info("Nessie sync for user {}: fetched {}, inserted {}", user.getId(), rows.size(), inserted);
+        return new SyncResult(rows.size(), inserted);
+    }
+
+    private void refreshAggregate(List<TransactionRow> rows) {
+        LocalDate first = rows.stream().map(TransactionRow::occurredAt).min(Comparator.naturalOrder())
+                .map(i -> i.atOffset(ZoneOffset.UTC).toLocalDate().withDayOfMonth(1)).orElseThrow();
+        LocalDate last = rows.stream().map(TransactionRow::occurredAt).max(Comparator.naturalOrder())
+                .map(i -> i.atOffset(ZoneOffset.UTC).toLocalDate().withDayOfMonth(1)).orElseThrow();
+        store.refreshMonthlyCashflow(first, last.plusMonths(1));
+    }
+
+    private String categoryOf(String merchantId) {
+        if (merchantId == null) {
+            return UNCATEGORIZED;
+        }
+        String cached = merchantCategories.get(merchantId);
+        if (cached != null) {
+            return cached;
+        }
+        try {
+            Merchant m = nessie.getMerchant(merchantId);
+            String category = m == null || m.category() == null || m.category().isEmpty()
+                    ? UNCATEGORIZED : m.category().getFirst();
+            merchantCategories.put(merchantId, category);
+            return category;
+        } catch (NessieException e) {
+            return UNCATEGORIZED;
+        }
+    }
+
+    private static TransactionRow row(String id, LocalDate date, AppUser user, String accountId, String kind,
+                                      BigDecimal amount, String category, String description, String merchantId,
+                                      String status) {
+        Instant occurredAt = date.atStartOfDay(ZoneOffset.UTC).toInstant();
+        return new TransactionRow(id, occurredAt, user.getId(), accountId, kind, amount, category,
+                truncate(description), merchantId, status == null ? "unknown" : status.toLowerCase(Locale.ROOT));
+    }
+
+    private static boolean cancelled(String status) {
+        return "cancelled".equalsIgnoreCase(status);
+    }
+
+    private static String truncate(String s) {
+        return s == null || s.length() <= 255 ? s : s.substring(0, 255);
+    }
+}

@@ -70,7 +70,7 @@ flowchart LR
 8. **Credential** = Anchor reputation PDA per wallet + Token-2022 `NonTransferable` token.
 9. **Nessie is polled** (no webhooks); dedupe by Nessie `_id`.
 10. **Recurring expenses with `durationMonths` live locally**; mirrored to Nessie as bills.
-11. **TimescaleDB:** hypertables for `account_transaction`, `balance_snapshot`, `audit_event`; continuous aggregate `monthly_cashflow`. Hypertable unique keys must include the time column. CAGG migrations must run non-transactionally in Flyway.
+11. **TimescaleDB:** hypertables for `account_transaction`, `balance_snapshot`, `audit_event`; continuous aggregate `monthly_cashflow`. Hypertable unique keys must include the time column. CAGG migrations must run non-transactionally in Flyway, **or** be created `WITH NO DATA` (what V3 does) and refreshed from code via `refresh_continuous_aggregate` outside a transaction.
 
 ### Out of scope
 Real KYC, real fiat on/off-ramps, mainnet, zero-knowledge proofs, partner-bank integration beyond the public verify endpoint.
@@ -157,9 +157,11 @@ sh_bean/
 │       │   ├── auth/         # SecurityConfig, JwtProperties, TokenService, AuthController, AppUserDetailsService
 │       │   ├── user/         # AppUser, AppUserRepository, MeController, DemoProperties, DemoUserSeeder
 │       │   └── nessie/       # NessieClient, NessieModels, NessieProperties, NessieException, NessieSmokeRunner
+│       │   ├── cashflow/     # NessieSyncService, NessieSyncScheduler, SyncController, TransactionStore (JDBC)
+│       │   └── demo/         # DemoScenario ("Alex" history), DemoNessieSeeder (dev)
 │       ├── main/resources/
 │       │   ├── application.yml, application-dev.yml
-│       │   ├── db/migration/V1__app_user.sql
+│       │   ├── db/migration/V1__app_user.sql, V2__core_tables.sql, V3__monthly_cashflow.sql
 │       │   └── graphql/schema.graphqls
 │       └── test/java/com/shbean/
 │           ├── auth/AuthFlowIntegrationTest.java   # Testcontainers (timescale/timescaledb)
@@ -187,8 +189,11 @@ All secrets come from environment variables or a root `.env` (imported by Spring
 | `GEMINI_API_KEY` | Google GenAI (Phase 3) |
 | `JWT_SECRET` | ≥ 32 bytes (`openssl rand -base64 48`); app refuses to start otherwise |
 | `DEMO_USER_EMAIL`, `DEMO_USER_PASSWORD` | Seeded in `dev` profile |
+| `SERVER_PORT` | Backend port, default **8090** (8080 is taken by local Jenkins) |
 
-Spring profiles: `dev` (GraphiQL + demo user seeding), `smoke` (Nessie round-trip on startup).
+Other properties: `nessie.sync.enabled` (default true), `nessie.sync.interval` (default `PT15M`), `nessie.sync.initial-delay` (default `PT1M`), `app.demo.seed-nessie` (default true).
+
+Spring profiles: `dev` (GraphiQL, demo user seeding, Nessie "Alex" scenario seeding + initial sync), `smoke` (Nessie round-trip on startup).
 
 ---
 
@@ -196,7 +201,7 @@ Spring profiles: `dev` (GraphiQL + demo user seeding), `smoke` (Nessie round-tri
 
 - Stateless JWT (HS256) on all routes except `POST /auth/login`, `/actuator/health`, `/graphiql/**`, `/error`.
 - Passwords hashed with BCrypt; generic "Invalid credentials" on any login failure.
-- **Nessie API key travels as a query param.** `NessieClient` wraps all calls and throws `NessieException` **without chaining the cause** (RestClient messages contain the full URI). Never log Nessie request URLs. Tests assert the key never appears in exceptions.
+- **Nessie API key travels as a query param.** `NessieClient` wraps all calls and throws `NessieException` **without chaining the cause** (RestClient messages contain the full URI); the root-cause message is included only after redacting the key. Never log Nessie request URLs. Tests assert the key never appears in exceptions.
 - GraphQL exposes a `UserView` record, never the entity (no password hash leakage).
 - Frontend stores the token in `sessionStorage`; 401 → clear token and redirect to login.
 - AI receives only aggregated figures — no Nessie IDs, account numbers, or names.
@@ -209,16 +214,17 @@ Spring profiles: `dev` (GraphiQL + demo user seeding), `smoke` (Nessie round-tri
 
 | Phase | Status |
 |---|---|
-| 0 Foundations | **Code written, not yet compiled/run/verified** |
-| 1 – 9 | Not started |
+| 0 Foundations | **Verified** except frontend login check and `anchor build` (Anchor CLI not installed) |
+| 1 Nessie ingestion + time-series | **Done & verified on Tiger** (V2/V3 applied, 364 demo txns seeded + synced, dedupe + CAGG verified) |
+| 2 – 9 | Not started |
 
 ### Phase 0 verification checklist
-- [ ] User: `tiger auth login`, create service, `tiger mcp install`; fill `.env`
-- [ ] User: obtain Nessie and Gemini API keys
-- [ ] `docker compose -f infra/docker-compose.yml up -d` → Kafka healthy, Kafka UI at http://localhost:8081
-- [ ] `cd backend && mvn verify` (unit + Testcontainers tests; needs Docker)
-- [ ] `mvn spring-boot:run -Dspring-boot.run.profiles=dev` → Flyway V1 applied on Tiger, demo user seeded
-- [ ] `mvn spring-boot:run -Dspring-boot.run.profiles=smoke` → Nessie customer + account created and read back; key not in logs
+- [x] User: `tiger auth login`, create service, `tiger mcp install`; fill `.env`
+- [x] User: obtain Nessie and Gemini API keys
+- [x] `docker compose -f infra/docker-compose.yml up -d` → Kafka healthy, Kafka UI at http://localhost:8081
+- [x] `cd backend && mvn verify` (unit + Testcontainers tests; needs Docker)
+- [x] `mvn spring-boot:run -Dspring-boot.run.profiles=dev` → Flyway V1 applied on Tiger, demo user seeded
+- [x] `mvn spring-boot:run -Dspring-boot.run.profiles=smoke` → Nessie customer + account created and read back; key not in logs
 - [ ] `cd frontend && npm install && npm run dev` → login at http://localhost:5173, Me page shows email
 - [ ] `cd solana && anchor build && anchor keys sync` → real program IDs replace placeholders
 
@@ -231,12 +237,22 @@ Spring profiles: `dev` (GraphiQL + demo user seeding), `smoke` (Nessie round-tri
 | 2026-10-16 | Idea selected (proactive micro-loans + hybrid reputation credential). Stack decided: Spring Boot, GraphQL + REST, Kafka (RabbitMQ rejected). |
 | 2026-10-16 | Plan v2: switched MySQL → Postgres/TimescaleDB on Tiger Cloud; added Capital One Nessie as core banking. |
 | 2026-10-16 | Phase 0 scaffolding written in `sh_bean/` (backend, frontend, infra, solana stubs). Not yet built or run. |
+| 2026-10-16 | `mvn verify` green (6/6). Fixed `AuthFlowIntegrationTest`: Spring GraphQL may complete `/graphql` synchronously, so the test handles both sync and async responses. |
+| 2026-10-16 | Dev run verified on Tiger service `sh_bean` (`xubqw8c48z`): V1 applied, demo login + GraphQL `me` OK. Added Flyway `baseline-on-migrate` (version 0) because Tiger pre-populates `public`. `.env` `DB_URL` must be JDBC form with separate `DB_USER`. |
+| 2026-10-17 | Nessie smoke verified (customer + account round-trip, key absent from logs). Switched Nessie to HTTPS. `NessieClient` errors now include the root cause with the API key redacted. |
+| 2026-10-17 | Backend port moved to **8090** (`SERVER_PORT`, default 8090) because local Jenkins occupies 8080; Vite proxy updated. |
+| 2026-10-17 | **Phase 1 done.** V2 (hypertables `account_transaction`, `balance_snapshot`, `audit_event` + regular tables `recurring_expense`, `forecast_snapshot`, `loan_offer`, `loan`, `wallet`, `credential`), V3 (`monthly_cashflow` CAGG per user/month/category, `WITH NO DATA` + hourly policy, real-time enabled). `NessieClient` gained deposits/withdrawals/purchases/merchants. `cashflow.NessieSyncService` (poll every 15 min + GraphQL `syncTransactions` mutation; JDBC batch insert `ON CONFLICT DO NOTHING`; refreshes CAGG for touched months; balance snapshot + audit event per sync). `demo.DemoScenario` (20 months, deterministic) + `demo.DemoNessieSeeder` (dev profile, 8-way parallel posting, links user only after full seed). Tests: 12/12 green. On Tiger: 364 txns seeded, re-sync inserted 0; CAGG shows insurance months 2025-02/2026-02 (net ≈ −1,100) and bonus months 2025-04/2026-04 (net ≈ +1,400); steady months ≈ +70..+200. |
 
 ---
 
 ## 11. Known Issues / Open Questions
 
-- **Nessie base URL defaults to `http://`** (cleartext API key). Switch `NESSIE_BASE_URL` to `https://` if supported.
+- **Nessie base URL is now `https://api.nessieisreal.com`** (plain HTTP is unreachable). Verified via smoke profile.
+- **Nessie does not update account balances** when deposits/withdrawals/purchases post, and it **truncates amounts to whole dollars**. The demo account is created with its *current* balance ($300). Phase 2/5/7 must not rely on Nessie's balance moving: derive effective balance = latest `balance_snapshot` (or seed balance) + sum of transactions after it. Decide this at the start of Phase 2.
+- Nessie merchant `category` is a string in the live API (arrays rejected on create); the model accepts both.
+- Demo scenario months are relative to the month the seeder ran (UTC): history = current−20 .. current−1; shortfall = month +4 (annual insurance), surplus = month +6 (annual bonus). Reseeding requires clearing the user's Nessie link (`nessie_customer_id`, `nessie_checking_account_id`) and their `account_transaction` rows.
+- `monthly_cashflow` buckets are UTC; render months in UTC to avoid off-by-one display.
+- Frontend login has not been verified yet (Phase 0 checklist).
 - Nessie endpoint shapes are based on the standard Nessie API (`/customers`, `/customers/{id}/accounts`, `/accounts/{id}`, `?key=`); verify with the smoke profile.
 - Anchor programs share a placeholder program ID until `anchor keys sync`.
 - Dependency versions were pinned without network verification (Spring Boot 3.5.6, Anchor 0.31.1, Vite 6, React 19, Apollo Client 3.13); bump if newer stable versions are desired.
