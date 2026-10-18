@@ -32,8 +32,6 @@ function stalkPath(leaves: number) {
 const LEAF = 'M0 0 C 8 -13, 28 -17, 40 -7 C 29 3, 12 6, 0 0 Z';
 const BEAN = 'M9 1.5c6-.8 10.2 3.8 9 9.8-1 5.4-6 7-9.1 5.5-2-1-3.4-.1-4.7 1.8C2.4 21.2-1.6 19.6.6 14.4 1.9 11.3 2.8 9.7 3 7.9 3.4 5.7 5.9 2 9 1.5Z';
 
-const CLOUD_LEFT =
-  'M -18 4 L 18 4 C 23 4, 25 1, 22 -3 C 23 -8, 16 -12, 10 -7 C 7 -15, -5 -15, -8 -7 C -13 -12, -21 -8, -18 -3 C -23 1, -21 4, -18 4 Z';
 const CLOUD_CENTER =
   'M -22 5 L 22 5 C 28 5, 30 1, 26 -4 C 27 -10, 18 -14, 12 -8 C 8 -17, -6 -17, -10 -8 C -16 -14, -25 -10, -22 -4 C -27 1, -25 5, -22 5 Z';
 const CLOUD_RIGHT =
@@ -217,28 +215,23 @@ export default function Beanstalk({ onTime, defaults, claimed, tierCaps, tier, v
               className={`beanstalk__clouds ${isDispersed ? 'beanstalk__clouds--dispersed' : 'beanstalk__clouds--dense'}`}
               transform={`translate(0, ${y})`}
             >
-              <g transform="translate(96, 2)">
-                <g className="beanstalk__cloud-puff beanstalk__cloud-puff--left">
-                  <path className="beanstalk__cloud" d={CLOUD_LEFT} />
-                </g>
-              </g>
-              <g transform="translate(118, -1)">
+              <g transform="translate(124, -1)">
                 <g className="beanstalk__cloud-puff beanstalk__cloud-puff--center">
                   <path className="beanstalk__cloud" d={CLOUD_CENTER} />
                 </g>
               </g>
-              <g transform="translate(156, 2)">
+              <g transform="translate(160, 2)">
                 <g className="beanstalk__cloud-puff beanstalk__cloud-puff--right">
                   <path className="beanstalk__cloud" d={CLOUD_RIGHT} />
                 </g>
               </g>
-              <g transform="translate(192, -3)">
+              <g transform="translate(196, -3)">
                 <g className="beanstalk__cloud-puff beanstalk__cloud-puff--wisp">
                   <path className="beanstalk__cloud" d={CLOUD_WISP} />
                 </g>
               </g>
             </g>
-            <text x={10} y={y - 6}>{`Tier ${i + 1} · ${usdWhole.format(tierCaps[i + 1] ?? 0)}`}</text>
+            <text x={8} y={y - 6}>{`Tier ${i + 1} · ${usdWhole.format(tierCaps[i + 1] ?? 0)}`}</text>
           </g>
         );
       })}
