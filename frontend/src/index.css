@@ -469,6 +469,13 @@ textarea {
   color: #fff;
 }
 
+.wordmark__logo {
+  width: 30px;
+  height: 40px;
+  object-fit: contain;
+  transition: transform 500ms var(--ease-out);
+}
+
 .shell__nav {
   display: flex;
   align-self: stretch;
@@ -1966,21 +1973,6 @@ figcaption {
   object-fit: contain;
 }
 
-.login__title {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.login__title img {
-  width: 68px;
-  height: 68px;
-  border-radius: var(--radius-tile);
-  object-fit: cover;
-  object-position: 50% 42%;
-  box-shadow: 0 4px 16px rgba(14, 42, 71, 0.12);
-}
-
 .login__brand-mobile {
   display: none;
 }
@@ -2271,7 +2263,7 @@ figcaption {
     transform: scale(1.06);
   }
 
-  .shell__brand:hover .bean-tile svg {
+  .shell__brand:hover .wordmark__logo {
     animation: bean-tip 500ms var(--ease-out);
   }
 
