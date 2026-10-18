@@ -1007,6 +1007,11 @@ figcaption {
   transform-origin: left center;
 }
 
+.sway {
+  animation: sway var(--dur, 2600ms) ease-in-out var(--d, 0ms) infinite alternate;
+  will-change: transform;
+}
+
 .wobble {
   transform-origin: center;
 }
@@ -1585,6 +1590,95 @@ figcaption {
 
 .beanstalk__tier.is-reached text {
   fill: var(--green-700);
+}
+
+/* Tier Clouds: Dense for unreached tiers; parted and wispy for reached tiers */
+.beanstalk__clouds {
+  pointer-events: none;
+}
+
+.beanstalk__cloud-puff {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    transform 900ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 900ms ease;
+  will-change: transform, opacity;
+}
+
+.beanstalk__cloud {
+  fill: #ffffff;
+  stroke: rgba(180, 205, 225, 0.5);
+  stroke-width: 0.75;
+  filter: drop-shadow(0 2px 4px rgba(15, 35, 60, 0.08));
+  animation: cloud-float 3800ms ease-in-out infinite alternate;
+}
+
+.beanstalk__cloud-puff--center .beanstalk__cloud {
+  animation-duration: 4400ms;
+  animation-delay: 200ms;
+}
+
+.beanstalk__cloud-puff--right .beanstalk__cloud {
+  animation-duration: 4100ms;
+  animation-delay: 450ms;
+}
+
+.beanstalk__cloud-puff--wisp .beanstalk__cloud {
+  animation-duration: 3300ms;
+  animation-delay: 700ms;
+}
+
+/* Dense cloud bank (unreached) */
+.beanstalk__clouds--dense .beanstalk__cloud-puff {
+  transform: none;
+}
+
+.beanstalk__clouds--dense .beanstalk__cloud-puff--left {
+  opacity: 0.88;
+}
+
+.beanstalk__clouds--dense .beanstalk__cloud-puff--center {
+  opacity: 0.94;
+}
+
+.beanstalk__clouds--dense .beanstalk__cloud-puff--right {
+  opacity: 0.88;
+}
+
+.beanstalk__clouds--dense .beanstalk__cloud-puff--wisp {
+  opacity: 0.75;
+}
+
+/* Dispersed clouds (reached: center evaporates, sides part outward and become wispy) */
+.beanstalk__clouds--dispersed .beanstalk__cloud-puff--left {
+  transform: translateX(-16px) scale(0.7);
+  opacity: 0.24;
+}
+
+.beanstalk__clouds--dispersed .beanstalk__cloud-puff--center {
+  transform: scale(0.12);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.beanstalk__clouds--dispersed .beanstalk__cloud-puff--right {
+  transform: translateX(18px) scale(0.72);
+  opacity: 0.28;
+}
+
+.beanstalk__clouds--dispersed .beanstalk__cloud-puff--wisp {
+  transform: translateX(8px) scale(0.55);
+  opacity: 0.18;
+}
+
+@keyframes cloud-float {
+  0% {
+    transform: translateY(0px);
+  }
+  100% {
+    transform: translateY(-2.5px);
+  }
 }
 
 .beanstalk__claimed circle:first-child {
@@ -2268,6 +2362,22 @@ figcaption {
   fill: rgba(255, 255, 255, 0.7);
 }
 
+.login__plant .beanstalk__tier.is-reached text {
+  fill: #4ade80;
+}
+
+.login__plant .beanstalk__tier.is-reached line {
+  stroke: #4ade80;
+  opacity: 0.55;
+}
+
+.login__plant .beanstalk__cloud {
+  fill: #ffffff;
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 0.6;
+  filter: drop-shadow(0 2px 10px rgba(255, 255, 255, 0.2));
+}
+
 .login__form {
   position: relative;
   display: grid;
@@ -2593,7 +2703,7 @@ figcaption {
   .hero:hover .sway,
   .bean-strip:hover .sway,
   .beanstalk:hover .sway {
-    animation: sway 1600ms ease-in-out var(--d, 0ms) infinite alternate;
+    animation-duration: 1200ms;
   }
 
   .hero:hover .wobble,
@@ -2651,8 +2761,11 @@ figcaption {
   .sway,
   .wobble,
   .bean-tile svg,
-  .lucide-bell {
+  .lucide-bell,
+  .beanstalk__cloud,
+  .beanstalk__cloud-puff {
     animation: none !important;
+    transition: none !important;
   }
 
   .card--link:hover,

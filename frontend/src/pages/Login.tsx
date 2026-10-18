@@ -30,7 +30,7 @@ export default function Login() {
     <div className="login">
       <section className="login__intro" aria-hidden="true">
         <Wordmark inverse />
-        <p className="login__line">See a tight month coming, and cover it before it hits.</p>
+        <p className="login__line">Proactive micro-loans that turn tight months into towering credit.</p>
         <div className="login__plant">
           <Beanstalk onTime={3} defaults={0} claimed={false} tier={1} tierCaps={TIER_CAPS} variant="preview" />
         </div>
