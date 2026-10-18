@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { gql, useLazyQuery, useMutation } from '@apollo/client';
 import { CheckCircle2, AlertTriangle, AlertCircle, Sparkles, ShoppingBag, X } from 'lucide-react';
 import { monthLong, usd } from '../lib/format';

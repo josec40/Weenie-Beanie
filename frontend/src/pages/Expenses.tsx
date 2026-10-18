@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { gql, useMutation, useQuery } from '@apollo/client';
-import { Sparkles, Trash2, ReceiptText, ShoppingBag, ArrowDownLeft, ArrowUpRight, Search } from 'lucide-react';
+import { Sparkles, Trash2, ReceiptText, ShoppingBag, Search } from 'lucide-react';
 import { addMonths, monthLong, monthShort, usd } from '../lib/format';
 import { PageSkeleton } from './Home';
 

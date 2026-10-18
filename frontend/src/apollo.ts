@@ -35,9 +35,12 @@ const errorLink = onError(({ networkError }) => {
   }
 });
 
-const apiBase = import.meta.env.VITE_API_BASE_URL || '';
-const defaultWsUrl = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/graphql-ws`;
-const wsUrl = import.meta.env.VITE_WS_URL || (apiBase ? apiBase.replace(/^http/, 'ws') + '/graphql-ws' : defaultWsUrl);
+const apiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
+const wsUrl =
+  import.meta.env.VITE_WS_URL ||
+  (apiBase
+    ? `${apiBase.replace(/^http/, 'ws')}/graphql-ws`
+    : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/graphql-ws`);
 
 // The JWT travels in connection_init: browsers cannot set headers on a WebSocket upgrade.
 export const wsClient: Client = createClient({
@@ -52,8 +55,7 @@ export const wsClient: Client = createClient({
   },
 });
 
-const httpUri = apiBase ? `${apiBase}/graphql` : '/graphql';
-const httpLink = from([errorLink, authLink, new HttpLink({ uri: httpUri })]);
+const httpLink = from([errorLink, authLink, new HttpLink({ uri: `${apiBase}/graphql` })]);
 
 export const apolloClient = new ApolloClient({
   link: split(

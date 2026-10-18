@@ -10,6 +10,10 @@ spring:
     username: ${DB_USER}
     password: ${DB_PASSWORD}
   graphql:
+    cors:
+      allowed-origin-patterns: "*"
+      allowed-methods: GET,POST,OPTIONS
+      allow-credentials: true
     websocket:
       # Subscriptions (graphql-ws protocol); the JWT travels in connection_init, see WebSocketAuthInterceptor.
       path: /graphql-ws
