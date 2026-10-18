@@ -66,6 +66,15 @@ type CheckResult = {
   explanation: { text: string } | null;
 };
 
+const DEMO_PRESETS = [
+  { label: 'Coffee Grinder', amount: 20, display: '$20 Grinder', status: 'Affordable' },
+  { label: 'Cold Brew Keg', amount: 450, display: '$450 Keg', status: 'Micro-loan' },
+  { label: 'Commercial Espresso Machine', amount: 900, display: '$900 Machine', status: 'Exceeds limit' },
+  { label: 'Pro Roaster Batch System', amount: 1800, display: '$1,800 Roaster', status: 'Affordable' },
+  { label: 'Artisan Sample Roaster', amount: 1900, display: '$1,900 Roaster', status: 'Micro-loan' },
+  { label: 'Pro Roaster Batch System', amount: 2000, display: '$2,000 Roaster', status: 'Exceeds balance' },
+];
+
 export default function PurchaseCheck({
   onWhatIfMonths,
   onLoanAccepted,
@@ -143,87 +152,53 @@ export default function PurchaseCheck({
   }
 
   return (
-    <section className="card purchase-check" aria-labelledby="purchase-check-title" style={{ marginTop: '24px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <ShoppingBag size={20} color="var(--navy-700)" />
-          <h2 id="purchase-check-title" style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700 }}>
-            Can I afford this purchase?
-          </h2>
+    <section className="card purchase-check" aria-labelledby="purchase-check-title">
+      <div className="purchase-check__header">
+        <div className="purchase-check__title-row">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <ShoppingBag size={22} color="var(--navy-700)" />
+            <h2 id="purchase-check-title" className="purchase-check__title">
+              Can I afford this purchase?
+            </h2>
+          </div>
+          {(label || amountInput || result) && (
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Clear check"
+              onClick={handleClear}
+              style={{ width: '32px', height: '32px' }}
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
-        {(label || amountInput || result) && (
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Clear check"
-            onClick={handleClear}
-            style={{ width: '32px', height: '32px' }}
-          >
-            <X size={16} />
-          </button>
-        )}
+        <p className="purchase-check__subtitle">
+          Run a stateless what-if simulation against your 12-month runway before spending.
+        </p>
       </div>
-
-      <p className="muted" style={{ margin: '0 0 16px 0', fontSize: '0.9rem' }}>
-        Run a stateless what-if simulation against your 12-month runway before spending.
-      </p>
 
       {/* Preset demo buttons */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
-        <span style={{ fontSize: '0.8rem', color: 'var(--ink-3)', alignSelf: 'center', fontWeight: 600 }}>Demo items:</span>
-        <button
-          type="button"
-          className="button button--secondary"
-          style={{ padding: '4px 10px', fontSize: '0.8rem', minHeight: 'unset' }}
-          onClick={() => handlePreset('Coffee Grinder', 20)}
-        >
-          $20 Grinder (Affordable)
-        </button>
-        <button
-          type="button"
-          className="button button--secondary"
-          style={{ padding: '4px 10px', fontSize: '0.8rem', minHeight: 'unset' }}
-          onClick={() => handlePreset('Cold Brew Keg', 450)}
-        >
-          $450 Keg (Micro-loan)
-        </button>
-        <button
-          type="button"
-          className="button button--secondary"
-          style={{ padding: '4px 10px', fontSize: '0.8rem', minHeight: 'unset' }}
-          onClick={() => handlePreset('Commercial Espresso Machine', 900)}
-        >
-          $900 Machine (Exceeds limit)
-        </button>
-        <button
-          type="button"
-          className="button button--secondary"
-          style={{ padding: '4px 10px', fontSize: '0.8rem', minHeight: 'unset' }}
-          onClick={() => handlePreset('Pro Roaster Batch System', 1800)}
-        >
-          $1,800 Roaster (Affordable)
-        </button>
-        <button
-          type="button"
-          className="button button--secondary"
-          style={{ padding: '4px 10px', fontSize: '0.8rem', minHeight: 'unset' }}
-          onClick={() => handlePreset('Artisan Sample Roaster', 1900)}
-        >
-          $1,900 Roaster (Micro-loan)
-        </button>
-        <button
-          type="button"
-          className="button button--secondary"
-          style={{ padding: '4px 10px', fontSize: '0.8rem', minHeight: 'unset' }}
-          onClick={() => handlePreset('Pro Roaster Batch System', 2000)}
-        >
-          $2,000 Roaster (Exceeds balance)
-        </button>
+      <div className="purchase-check__demo">
+        <span className="purchase-check__demo-label">Demo items</span>
+        <div className="purchase-check__demo-grid">
+          {DEMO_PRESETS.map((p) => (
+            <button
+              key={`${p.display}-${p.amount}`}
+              type="button"
+              className="purchase-check__demo-btn"
+              onClick={() => handlePreset(p.label, p.amount)}
+            >
+              <span className="purchase-check__demo-name">{p.display}</span>
+              <span className="purchase-check__demo-status">({p.status})</span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      <form onSubmit={(e) => void handleCheck(e)} style={{ display: 'grid', gap: '12px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: '12px' }}>
-          <label className="field">
+      <form onSubmit={(e) => void handleCheck(e)} className="purchase-check__form">
+        <div className="purchase-check__form-row">
+          <label className="field purchase-check__field-name">
             <span>Item or expense name</span>
             <input
               type="text"
@@ -233,7 +208,7 @@ export default function PurchaseCheck({
               onChange={(e) => setLabel(e.target.value)}
             />
           </label>
-          <label className="field">
+          <label className="field purchase-check__field-amount">
             <span>Amount ($)</span>
             <input
               type="number"
@@ -244,36 +219,31 @@ export default function PurchaseCheck({
               onChange={(e) => setAmountInput(e.target.value)}
             />
           </label>
+          <button
+            type="submit"
+            className="button purchase-check__submit-btn"
+            disabled={loading}
+          >
+            {loading ? 'Checking…' : 'Check Affordability'}
+          </button>
         </div>
-
-        <button type="submit" className="button" disabled={loading} style={{ justifySelf: 'start' }}>
-          {loading ? 'Checking affordability…' : 'Check Affordability'}
-        </button>
       </form>
 
       {error && (
-        <p className="form-error" role="alert" style={{ marginTop: '12px' }}>
+        <p className="form-error" role="alert">
           {error.message}
         </p>
       )}
 
       {actionError && (
-        <p className="form-error" role="alert" style={{ marginTop: '12px' }}>
+        <p className="form-error" role="alert">
           {actionError}
         </p>
       )}
 
       {/* Results Box */}
       {result && (
-        <div
-          style={{
-            marginTop: '20px',
-            padding: '16px',
-            borderRadius: 'var(--radius-sm)',
-            border: '1px solid var(--line)',
-            background: 'var(--ground)',
-          }}
-        >
+        <div className="purchase-check__result">
           {result.verdict === 'AFFORDABLE' && (
             <div style={{ display: 'grid', gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
