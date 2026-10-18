@@ -1910,6 +1910,157 @@ figcaption {
   color: #cfe0f1;
 }
 
+/* Simulate Month Bar */
+.simulate-bar {
+  background: #091f35;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 0.85rem;
+  position: relative;
+  z-index: 15;
+}
+
+.simulate-bar__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 6px 24px;
+  flex-wrap: wrap;
+}
+
+.simulate-bar__info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.simulate-bar__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 3px 10px;
+  border-radius: 20px;
+  color: #f1f5f9;
+  font-weight: 500;
+}
+
+.simulate-bar__badge strong {
+  color: #a7f3d0;
+  font-weight: 700;
+}
+
+.simulate-bar__caption {
+  color: var(--on-navy-2);
+  font-size: 0.8rem;
+}
+
+.simulate-bar__feedback {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.simulate-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.simulate-bar__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 160ms var(--ease-out);
+}
+
+.simulate-bar__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.simulate-bar__btn--primary {
+  background: #2e7d4f;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.simulate-bar__btn--primary:hover:not(:disabled) {
+  background: #256640;
+  transform: translateY(-1px);
+}
+
+.simulate-bar__btn--secondary {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.simulate-bar__btn--secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.24);
+  transform: translateY(-1px);
+}
+
+/* Loan Simulation Callout */
+.loan-simulation-callout {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 16px 18px;
+  margin: 16px 0;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border: 1.5px solid #a7f3d0;
+  color: #064e3b;
+}
+
+.loan-simulation-callout__icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #d1fae5;
+  color: #059669;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loan-simulation-callout__body {
+  flex: 1;
+}
+
+.loan-simulation-callout__body h4 {
+  margin: 0 0 4px 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #064e3b;
+}
+
+.loan-simulation-callout__body p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: #047857;
+}
+
 /* Login */
 .login {
   display: grid;

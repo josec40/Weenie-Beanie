@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { gql, useMutation, useQuery } from '@apollo/client';
-import { ArrowRight, ExternalLink, AlertCircle } from 'lucide-react';
+import { gql, useMutation, useQuery, useApolloClient } from '@apollo/client';
+import { ArrowRight, ExternalLink, AlertCircle, FastForward, Sparkles } from 'lucide-react';
 import { BeanTile } from '../components/BeanWorld';
 import { LOAN_FIELDS, OPEN_STATUSES, loanCopy, type Loan } from '../components/LoanCards';
 import { monthLong, monthShort, usd } from '../lib/format';
@@ -18,6 +18,7 @@ const LOANS = gql`
       shortfallMonth
     }
     forecast(months: 1) {
+      currentMonth
       startingBalance
     }
   }
@@ -39,10 +40,20 @@ const REPAY_EARLY = gql`
   }
 `;
 
+const ADVANCE_SIMULATION = gql`
+  mutation AdvanceSimulation($months: Int) {
+    advanceMonth(months: $months) {
+      currentMonth
+      offset
+      enabled
+    }
+  }
+`;
+
 type LoansData = {
   loans: Loan[];
   currentOffer: { id: string; principal: number; shortfallMonth: string } | null;
-  forecast: { startingBalance: number } | null;
+  forecast: { currentMonth: string; startingBalance: number } | null;
 };
 
 const STEPS: { key: string; label: string; done: (s: string) => boolean }[] = [
@@ -51,11 +62,22 @@ const STEPS: { key: string; label: string; done: (s: string) => boolean }[] = [
   { key: 'repaid', label: 'Repaid, bean planted', done: (s) => s === 'REPAID' },
 ];
 
+function monthDiff(fromStr: string, toStr: string): number {
+  if (!fromStr || !toStr) return 1;
+  const [y1, m1] = fromStr.split('-').map(Number);
+  const [y2, m2] = toStr.split('-').map(Number);
+  if (isNaN(y1) || isNaN(m1) || isNaN(y2) || isNaN(m2)) return 1;
+  return (y2 - y1) * 12 + (m2 - m1);
+}
+
 export default function Loans() {
+  const client = useApolloClient();
   const { data, loading, error, refetch } = useQuery<LoansData>(LOANS, { pollInterval: 30000 });
   const [reschedule, rescheduleState] = useMutation(RESCHEDULE);
   const [repayEarly, repayState] = useMutation(REPAY_EARLY);
+  const [advanceSim, advanceSimState] = useMutation(ADVANCE_SIMULATION);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [simSuccessMsg, setSimSuccessMsg] = useState<string | null>(null);
 
   if (loading && !data) return <PageSkeleton />;
   if (error || !data) {
@@ -71,10 +93,13 @@ export default function Loans() {
   const open = data.loans.find((l) => OPEN_STATUSES.includes(l.status));
   const past = data.loans.filter((l) => l !== open);
   const currentBalance = data.forecast?.startingBalance ?? 0;
+  const currentMonth = data.forecast?.currentMonth ?? '';
+  const monthsUntilDue = currentMonth && open?.repayMonth ? monthDiff(currentMonth, open.repayMonth) : 1;
   const isInsufficient = open ? currentBalance < open.totalDue : false;
 
   async function act(action: () => Promise<unknown>) {
     setActionError(null);
+    setSimSuccessMsg(null);
     try {
       await action();
       await refetch();
@@ -83,10 +108,44 @@ export default function Loans() {
     }
   }
 
+  async function handleSimulate(months: number) {
+    setActionError(null);
+    setSimSuccessMsg(null);
+    try {
+      const res = await advanceSim({ variables: { months } });
+      const nextMonth = res.data?.advanceMonth?.currentMonth;
+      await client.refetchQueries({ include: 'active' });
+      setSimSuccessMsg(
+        months > 1
+          ? `Advanced ${months} months to ${monthLong(nextMonth ?? '')}! Aggregate financial statements updated & due loan fulfilled.`
+          : `Advanced 1 month to ${monthLong(nextMonth ?? '')}! Aggregate financial statements updated.`
+      );
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Simulation failed');
+    }
+  }
+
   return (
     <div className="page loans">
-      <div className="page__head">
-        <h1>Loans</h1>
+      <div className="page__head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <h1 style={{ margin: 0 }}>Loans</h1>
+          <p className="muted small" style={{ margin: '4px 0 0 0' }}>
+            Micro-loans designed to prevent overdrafts with automated draft settlement.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button
+            type="button"
+            className="button button--secondary button--small"
+            disabled={advanceSimState.loading}
+            onClick={() => void handleSimulate(1)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Sparkles size={14} aria-hidden="true" />
+            {advanceSimState.loading ? 'Simulating…' : 'Simulate Month (+1)'}
+          </button>
+        </div>
       </div>
 
       {data.currentOffer && !open && (
@@ -168,6 +227,64 @@ export default function Loans() {
             </div>
           )}
 
+          {simSuccessMsg && (
+            <div
+              style={{
+                padding: '12px 16px',
+                borderRadius: 'var(--radius-sm)',
+                background: '#ecfdf5',
+                border: '1.5px solid #a7f3d0',
+                color: '#065f46',
+                margin: '16px 0',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+              }}
+              role="status"
+            >
+              {simSuccessMsg}
+            </div>
+          )}
+
+          {['ACCEPTED', 'DISBURSING', 'ACTIVE'].includes(open.status) && (
+            <div className="loan-simulation-callout">
+              <div className="loan-simulation-callout__icon">
+                <Sparkles size={20} />
+              </div>
+              <div className="loan-simulation-callout__body">
+                <h4>Simulate Time & Fulfill Repayment</h4>
+                <p>
+                  This micro-loan is scheduled to automatically repay at the end of{' '}
+                  <strong>{monthLong(open.repayMonth)}</strong>
+                  {monthsUntilDue > 0 ? ` (${monthsUntilDue} ${monthsUntilDue === 1 ? 'month' : 'months'} away)` : ''}.
+                  Simulate the calendar to that month to realize next month's cashflow statements and fulfill this loan immediately!
+                </p>
+                <div className="button-row" style={{ marginTop: '12px' }}>
+                  <button
+                    type="button"
+                    className="button button--small"
+                    disabled={advanceSimState.loading}
+                    onClick={() => void handleSimulate(Math.max(1, monthsUntilDue))}
+                  >
+                    <FastForward size={14} aria-hidden="true" />
+                    {advanceSimState.loading
+                      ? 'Simulating…'
+                      : monthsUntilDue > 1
+                      ? `Fast-Forward ${monthsUntilDue} Months (Fulfill Loan ⚡)`
+                      : `Simulate to ${monthShort(open.repayMonth)} (Fulfill Loan ⚡)`}
+                  </button>
+                  <button
+                    type="button"
+                    className="button button--secondary button--small"
+                    disabled={advanceSimState.loading}
+                    onClick={() => void handleSimulate(1)}
+                  >
+                    Simulate +1 Month
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {actionError && (
             <p className="form-error" role="alert">
               {actionError}
@@ -208,6 +325,18 @@ export default function Loans() {
         <section className="calm-card">
           <h2>No open micro-loan</h2>
           <p>When your forecast shows a shortfall that fits your limit, an offer appears on Home.</p>
+          <div style={{ marginTop: '16px' }}>
+            <button
+              type="button"
+              className="button button--secondary button--small"
+              disabled={advanceSimState.loading}
+              onClick={() => void handleSimulate(1)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Sparkles size={14} />
+              {advanceSimState.loading ? 'Simulating…' : 'Simulate Next Month'}
+            </button>
+          </div>
         </section>
       )}
 

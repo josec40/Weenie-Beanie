@@ -6,6 +6,7 @@ import { signOut } from '../apollo';
 import { useLiveUpdates, type LiveNotification } from '../hooks/useLiveUpdates';
 import DemoPanel from './DemoPanel';
 import NotificationBell from './NotificationBell';
+import SimulateMonthBar from './SimulateMonthBar';
 import Toasts from './Toasts';
 
 const ME = gql`
@@ -81,6 +82,22 @@ export default function AppShell() {
           </div>
         </div>
       </header>
+      <SimulateMonthBar
+        onSuccess={(msg) =>
+          setToasts((t) => [
+            ...t.slice(-2),
+            {
+              id: String(Date.now()),
+              title: 'Simulation Complete',
+              body: msg,
+              type: 'INFO',
+              link: '/loans',
+              createdAt: new Date().toISOString(),
+              read: false,
+            },
+          ])
+        }
+      />
 
       <main id="main" className="shell__main" tabIndex={-1}>
         <Outlet />

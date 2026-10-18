@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { gql, useMutation, useQuery } from '@apollo/client';
-import { ExternalLink, FastForward, Presentation, RotateCcw, ShoppingBag, X } from 'lucide-react';
+import { gql, useMutation, useQuery, useApolloClient } from '@apollo/client';
+import { ExternalLink, FastForward, Presentation, RotateCcw, ShoppingBag, Sparkles, X } from 'lucide-react';
 import { monthLong } from '../lib/format';
 
 export const DEMO_STATUS = gql`
@@ -23,9 +23,11 @@ export const DEMO_STATUS = gql`
 `;
 
 const ADVANCE = gql`
-  mutation Advance {
-    advanceMonth {
+  mutation Advance($months: Int) {
+    advanceMonth(months: $months) {
       currentMonth
+      offset
+      enabled
     }
   }
 `;
@@ -51,6 +53,7 @@ type DemoStatus = {
 
 /** Presenter-only controls for the scripted demo; not part of the customer experience. */
 export default function DemoPanel() {
+  const client = useApolloClient();
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,11 +79,20 @@ export default function DemoPanel() {
     }
   }
 
+  async function onAdvance(months: number) {
+    await run(async () => {
+      await advance({ variables: { months } });
+      await refetch();
+      await client.refetchQueries({ include: 'active' });
+    });
+  }
+
   async function onReset() {
     setConfirming(false);
     await run(async () => {
       await reset();
       await refetch();
+      await client.refetchQueries({ include: 'active' });
     });
   }
 
@@ -107,13 +119,20 @@ export default function DemoPanel() {
               type="button"
               className="button"
               disabled={advanceState.loading || resetting}
-              onClick={() => void run(async () => {
-                await advance();
-                await refetch();
-              })}
+              onClick={() => void onAdvance(1)}
+            >
+              <Sparkles aria-hidden="true" size={16} />
+              {advanceState.loading ? 'Advancing…' : 'Advance One Month (+1)'}
+            </button>
+            <button
+              type="button"
+              className="button button--secondary"
+              disabled={advanceState.loading || resetting}
+              onClick={() => void onAdvance(2)}
+              title="Advances 2 months, realizes next month cashflow aggregates, and settles 2-month loans"
             >
               <FastForward aria-hidden="true" size={16} />
-              {advanceState.loading ? 'Advancing…' : 'Advance One Month'}
+              {advanceState.loading ? 'Advancing…' : 'Advance 2 Months (Fulfill Loans)'}
             </button>
             <Link
               to="/store"

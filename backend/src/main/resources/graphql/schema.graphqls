@@ -75,8 +75,8 @@ type Mutation {
     rescheduleLoan(loanId: ID!): Loan!
     "Repay now instead of the scheduled month (balance safeguard still applies)."
     repayLoanEarly(loanId: ID!): Loan!
-    "Demo only: close the current simulated month and open the next."
-    advanceMonth: DemoClock!
+    "Demo only: close the current simulated month and open the next (optionally advance multiple months)."
+    advanceMonth(months: Int = 1): DemoClock!
     "Demo only: wipe and re-seed the demo account in the background; poll demoStatus for progress."
     resetDemo: DemoStatus!
     "Marks the given notifications read; an empty or missing list marks all. Returns how many changed."
