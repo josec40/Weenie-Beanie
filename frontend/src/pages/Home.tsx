@@ -117,7 +117,12 @@ export default function Home() {
               </p>
             )}
           </div>
-          <HeroLeaves />
+          <div className="hero__brandscape">
+            <div className="hero__capital-one">
+              <img src="/brand/capital-one.png" alt="Capital One" />
+            </div>
+            <HeroLeaves />
+          </div>
         </div>
       </section>
 

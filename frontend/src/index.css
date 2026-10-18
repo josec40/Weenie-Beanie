@@ -676,6 +676,31 @@ figcaption {
   font-weight: 700;
 }
 
+.hero__brandscape {
+  display: grid;
+  align-self: stretch;
+  align-content: end;
+  justify-items: center;
+  min-width: 0;
+}
+
+.hero__capital-one {
+  position: relative;
+  z-index: 1;
+  width: min(190px, 75%);
+  margin-bottom: -18px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(4, 19, 34, 0.24);
+}
+
+.hero__capital-one img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .hero-leaves {
   align-self: end;
   width: 100%;
@@ -1914,12 +1939,46 @@ figcaption {
 }
 
 .login__form {
+  position: relative;
   display: grid;
   align-content: center;
   gap: 20px;
   width: min(420px, 100% - 48px);
   margin: 0 auto;
   padding: 48px 0;
+}
+
+.login__powered {
+  position: fixed;
+  top: 24px;
+  right: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-3);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.login__powered img {
+  width: 66px;
+  height: 46px;
+  object-fit: contain;
+}
+
+.login__title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.login__title img {
+  width: 68px;
+  height: 68px;
+  border-radius: var(--radius-tile);
+  object-fit: cover;
+  object-position: 50% 42%;
+  box-shadow: 0 4px 16px rgba(14, 42, 71, 0.12);
 }
 
 .login__brand-mobile {
@@ -2034,6 +2093,19 @@ figcaption {
     opacity: 0.55;
   }
 
+  .hero__brandscape {
+    position: absolute;
+    right: 0;
+    bottom: 40px;
+    width: 150px;
+  }
+
+  .hero__capital-one {
+    width: 118px;
+    margin: 0 0 108px;
+    padding: 5px 8px;
+  }
+
   .home__grid {
     margin-top: -40px;
   }
@@ -2136,6 +2208,16 @@ figcaption {
 
   .login__brand-mobile {
     display: block;
+  }
+
+  .login__powered {
+    top: 14px;
+    right: 16px;
+  }
+
+  .login__powered img {
+    width: 54px;
+    height: 38px;
   }
 
   .hide-sm {

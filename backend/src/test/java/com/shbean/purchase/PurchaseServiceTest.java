@@ -24,6 +24,7 @@ import com.shbean.ai.ExplanationService.Source;
 import com.shbean.cashflow.NessieSyncService;
 import com.shbean.cashflow.TransactionStore;
 import com.shbean.cashflow.TransactionStore.BalanceSnapshot;
+import com.shbean.events.EventPublisher;
 import com.shbean.forecast.ForecastEngine.Month;
 import com.shbean.forecast.ForecastService;
 import com.shbean.forecast.ForecastService.Forecast;
@@ -47,6 +48,7 @@ class PurchaseServiceTest {
     private TransactionStore store;
     private NessieClient nessie;
     private NessieSyncService sync;
+        private EventPublisher events;
     private PurchaseService service;
 
     private AppUser user;
@@ -60,8 +62,9 @@ class PurchaseServiceTest {
         store = mock(TransactionStore.class);
         nessie = mock(NessieClient.class);
         sync = mock(NessieSyncService.class);
+        events = mock(EventPublisher.class);
 
-        service = new PurchaseService(forecasts, explanations, loans, tiers, PROPS, store, nessie, sync);
+        service = new PurchaseService(forecasts, explanations, loans, tiers, PROPS, store, nessie, sync, events);
 
         user = new AppUser("alex@demo.local", "hash");
         user.linkNessie("cust-1", "acc-1");

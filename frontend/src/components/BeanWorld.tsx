@@ -37,7 +37,7 @@ const HERO_LEAVES: LeafSpec[] = [
   { x: 262, y: 214, r: -48, s: 0.7, tone: 'leaf', d: 340 },
 ];
 
-/** Decorative leaves and a bean that grow up into the hero band from its lower edge. */
+/** Decorative leaves that grow up into the hero band from its lower edge. */
 export function HeroLeaves() {
   return (
     <svg className="hero-leaves" viewBox="0 0 320 214" aria-hidden="true" focusable="false">
@@ -49,11 +49,6 @@ export function HeroLeaves() {
           </g>
         </g>
       ))}
-      <g transform="translate(196 180) rotate(-18) scale(1.5)">
-        <g className="wobble">
-          <BeanGlyph />
-        </g>
-      </g>
     </svg>
   );
 }

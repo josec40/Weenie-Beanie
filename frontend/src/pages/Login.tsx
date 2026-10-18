@@ -36,10 +36,17 @@ export default function Login() {
         </div>
       </section>
       <main className="login__form">
+        <div className="login__powered" aria-label="Powered by Nessie">
+          <span>Powered by</span>
+          <img src="/brand/nessie.png" alt="Nessie" />
+        </div>
         <div className="login__brand-mobile">
           <Wordmark />
         </div>
-        <h1>Sign in</h1>
+        <h1 className="login__title">
+          <img src="/brand/weenie-beanie.png" alt="" />
+          <span>Sign in</span>
+        </h1>
         <form onSubmit={onSubmit} className="stack">
           <label className="field">
             <span>Email</span>
